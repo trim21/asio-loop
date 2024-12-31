@@ -17,31 +17,35 @@ extern nb::object aio_ensure_future;
 
 class EventLoop {
 private:
-  asio::io_context io;
+    asio::io_context io;
 
 public:
-  std::string name;
+    std::string name;
 
-  EventLoop(const std::string_view &s) { this->name = s; }
+    EventLoop(const std::string_view &s) {
+        this->name = s;
+    }
 
-  std::string repr() {
-    return fmt::format("<asioloop.EventLoop name={:?}>", this->name);
-  }
+    std::string repr() {
+        return fmt::format("<asioloop.EventLoop name={:?}>", this->name);
+    }
 
-  void call_soon(nb::callable callback, nb::args args, nb::kwargs kwargs) {
-    asio::post(this->io, [=] { callback(*args); });
-  }
+    void call_soon(nb::callable callback, nb::args args, nb::kwargs kwargs) {
+        asio::post(this->io, [=] { callback(*args); });
+    }
 
-  nb::object run_until_complete(nb::object future) {
-    nb::print(future);
-    nb::print(aio_ensure_future);
-    nb::print(aio_ensure_future(future));
+    nb::object run_until_complete(nb::object future) {
+        nb::print(future);
+        nb::print(aio_ensure_future);
+        nb::print(aio_ensure_future(future));
 
-    // asio::post(this->io)
-    // this->io.run_one();
-    // return future.attr("result")();
-    return nb::none();
-  }
+        // asio::post(this->io)
+        // this->io.run_one();
+        // return future.attr("result")();
+        return nb::none();
+    }
 
-  void run_forever() { this->io.run(); }
+    void run_forever() {
+        this->io.run();
+    }
 };
