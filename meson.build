@@ -32,13 +32,16 @@ cxx_id = compiler.get_id()
 nanobind_dep = dependency('nanobind', static: true)
 
 asio = dependency('asio')
+boost_dep = dependency('boost')
 fmt = subproject('fmt')
 
 if build_machine.system() == 'linux'
-    add_project_arguments('-DASIO_HAS_IO_URING', language: 'cpp')
+    add_project_arguments('-DBOOST_ASIO_HAS_IO_URING', language: 'cpp')
 endif
 
-add_project_arguments('-DASIO_NO_DEPRECATED', language: 'cpp')
+add_project_arguments('-DPY_ASIO_LOOP_CPP_DEBUG', language: 'cpp')
+
+add_project_arguments('-DBOOST_ASIO_NO_DEPRECATED', language: 'cpp')
 
 out = py.extension_module(
     '__asioloop',
@@ -49,7 +52,7 @@ out = py.extension_module(
     dependencies: [
         nanobind_dep,
         fmt.get_variable('fmt_header_only_dep'),
-        asio,
+        boost_dep,
         py.dependency(),
     ],
 )
