@@ -1,5 +1,7 @@
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/string.h>
+#include <nanobind/stl/string_view.h>
+
 
 namespace nb = nanobind;
 
@@ -13,7 +15,7 @@ NB_MODULE(__asioloop, m) {
   aio_ensure_future.inc_ref();
 
   nb::class_<EventLoop>(m, "EventLoop")
-      .def(nb::init<const std::string &>())
+      .def(nb::init<const std::string_view &>())
       .def_ro("name", &EventLoop::name)
       .def("call_soon", &EventLoop::call_soon,
            nb::call_guard<nb::gil_scoped_acquire>())

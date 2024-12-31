@@ -29,20 +29,16 @@ py.install_sources(
 compiler = meson.get_compiler('cpp')
 cxx_id = compiler.get_id()
 
-if cxx_id == 'msvc' or cxx_id == 'clang-cl'
-    add_global_arguments('-D_CRT_SECURE_NO_WARNINGS', language: 'cpp')
-endif
-
 nanobind_dep = dependency('nanobind', static: true)
 
-boost = dependency('boost')
+asio = dependency('asio')
 fmt = subproject('fmt')
 
 if build_machine.system() == 'linux'
     add_project_arguments('-DASIO_HAS_IO_URING', language: 'cpp')
 endif
 
-add_project_arguments('-DBOOST_ASIO_NO_DEPRECATED', language: 'cpp')
+add_project_arguments('-DASIO_NO_DEPRECATED', language: 'cpp')
 
 out = py.extension_module(
     '__asioloop',
@@ -53,7 +49,7 @@ out = py.extension_module(
     dependencies: [
         nanobind_dep,
         fmt.get_variable('fmt_header_only_dep'),
-        boost,
+        asio,
         py.dependency(),
     ],
 )

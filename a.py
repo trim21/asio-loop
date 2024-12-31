@@ -2,7 +2,6 @@ import asyncio
 from asioloop import EventLoop
 
 
-loop: asyncio.BaseEventLoop = EventLoop("a")
+loop: asyncio.BaseEventLoop = EventLoop("ab")
 
-task = asyncio.sleep(1, 2)
-assert loop.run_until_complete(task) == 2
+print(loop)

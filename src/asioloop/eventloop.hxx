@@ -6,24 +6,23 @@
 #include <SDKDDKVer.h>
 #endif
 
-#include <boost/asio.hpp>
+#include <asio.hpp>
 #include <fmt/core.h>
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/string.h>
 
 namespace nb = nanobind;
-namespace asio = boost::asio;
 
 extern nb::object aio_ensure_future;
 
 class EventLoop {
 private:
-  boost::asio::io_context io;
+  asio::io_context io;
 
 public:
   std::string name;
 
-  EventLoop(const std::string &s) { this->name = std::string(s); }
+  EventLoop(const std::string_view &s) { this->name = s; }
 
   std::string repr() {
     return fmt::format("<asioloop.EventLoop name={:?}>", this->name);
