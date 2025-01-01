@@ -4,9 +4,6 @@ import threading
 from .__asioloop import EventLoop
 
 
-asyncio.DefaultEventLoopPolicy
-
-
 class AsioEventLoopPolicy(asyncio.AbstractEventLoopPolicy):
 
     _loop_factory = EventLoop
@@ -29,19 +26,15 @@ class AsioEventLoopPolicy(asyncio.AbstractEventLoopPolicy):
             and threading.current_thread() is threading.main_thread()
         ):
             stacklevel = 2
-            try:
-                f = sys._getframe(1)
-            except AttributeError:
-                pass
-            else:
-                # Move up the call stack so that the warning is attached
-                # to the line outside asyncio itself.
-                while f:
-                    module = f.f_globals.get("__name__")
-                    if not (module == "asyncio" or module.startswith("asyncio.")):
-                        break
-                    f = f.f_back
-                    stacklevel += 1
+            f = sys._getframe(1)
+            # Move up the call stack so that the warning is attached
+            # to the line outside asyncio itself.
+            while f:
+                module = f.f_globals.get("__name__")
+                if not (module == "asyncio" or module.startswith("asyncio.")):
+                    break
+                f = f.f_back
+                stacklevel += 1
             import warnings
 
             warnings.warn(

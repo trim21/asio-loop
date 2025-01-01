@@ -1,3 +1,5 @@
+#pragma once
+
 #include "common.hxx"
 
 #if win32

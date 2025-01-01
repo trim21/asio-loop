@@ -31,16 +31,17 @@ cxx_id = compiler.get_id()
 
 nanobind_dep = dependency('nanobind', static: true)
 
-asio = dependency('asio')
-boost_dep = dependency('boost')
+boost_dep = [dependency('boost', version: '>=1.78')]
 fmt = subproject('fmt')
 
 if build_machine.system() == 'linux'
+    boost_dep += [dependency('liburing')]
+
     add_project_arguments('-DBOOST_ASIO_HAS_IO_URING', language: 'cpp')
+    add_project_arguments('-DBOOST_ASIO_DISABLE_EPOLL', language: 'cpp')
 endif
 
 add_project_arguments('-DPY_ASIO_LOOP_CPP_DEBUG', language: 'cpp')
-
 add_project_arguments('-DBOOST_ASIO_NO_DEPRECATED', language: 'cpp')
 
 out = py.extension_module(

@@ -10,7 +10,6 @@
 #include <fmt/base.h>
 #include <nanobind/nanobind.h>
 
-#include "asio.hxx"
 #include "eventloop.hxx"
 
 using object = nb::object;
@@ -30,7 +29,8 @@ void EventLoop::run_forever() {
     io.run();
 }
 
-nb::object EventLoop::create_task(nb::object coro, std::optional<nb::object> name,
+nb::object EventLoop::create_task(nb::object coro,
+                                  std::optional<nb::object> name,
                                   std::optional<nb::object> context) {
     debug_print("create_task");
     nb::dict kwargs;
@@ -125,23 +125,61 @@ nb::object EventLoop::run_until_complete(nb::object future) {
 // }
 
 void EventLoop::call_later(double delay, nb::object f) {
+    debug_print("call_later {}", delay);
     auto p_timer = std::make_shared<asio::steady_timer>(
         io,
         std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::duration<double>(delay)));
-    p_timer->async_wait(
-        asio::bind_executor(loop, [f, p_timer](const boost::system::error_code &ec) {
-            nb::gil_scoped_acquire gil{};
+    p_timer->async_wait(asio::bind_executor(loop, [f](const boost::system::error_code &ec) {
+        nb::gil_scoped_acquire gil{};
 
-            f();
-        }));
+        f();
+    }));
 }
 
 void EventLoop::call_at(double when, nb::object f) {
+    debug_print("call_at {}", when);
     using sc = std::chrono::steady_clock;
     auto p_timer = std::make_shared<asio::steady_timer>(
         io, sc::duration(static_cast<sc::time_point::rep>(when)));
-    p_timer->async_wait(
-        asio::bind_executor(loop, [f, p_timer](const boost::system::error_code &ec) { f(); }));
+    p_timer->async_wait(asio::bind_executor(loop, [=](const boost::system::error_code &ec) {
+        nb::gil_scoped_acquire gil{};
+        f();
+    }));
+}
+
+// async def create_connection(
+//     self,
+//     protocol_factory,
+//     host=None,
+//     port=None,
+//     *,
+//     ssl=None,
+//     family=0,
+//     proto=0,
+//     flags=0,
+//     sock=None,
+//     local_addr=None,
+//     server_hostname=None,
+//     ssl_handshake_timeout=None,
+//     ssl_shutdown_timeout=None,
+//     happy_eyeballs_delay=None,
+//     interleave=None,
+// ): ...
+nb::object EventLoop ::create_connection(nb::object protocol_factory,
+                                         std::optional<nb::object> host,
+                                         std::optional<nb::object> port,
+                                         std::optional<nb::object> ssl,
+                                         int family,
+                                         int proto,
+                                         int flags,
+                                         std::optional<nb::object> sock,
+                                         std::optional<nb::object> local_addr,
+                                         std::optional<nb::object> server_hostname,
+                                         std::optional<nb::object> ssl_handshake_timeout,
+                                         std::optional<nb::object> ssl_shutdown_timeout,
+                                         std::optional<nb::object> happy_eyeballs_delay,
+                                         std::optional<nb::object> interleave) {
+    return nb::none();
 }
 
 // // TODO: support windows socket
@@ -268,8 +306,8 @@ object EventLoop::sock_sendfile(object sock, object file, int offset, int count,
 extern nb::object py_socket;
 
 // TODO: use asio resolver
-nb::object EventLoop::getaddrinfo(nb::object host, int port, int family, int type, int proto,
-                                  int flags) {
+nb::object
+EventLoop::getaddrinfo(nb::object host, int port, int family, int type, int proto, int flags) {
     debug_print("getaddrinfo start");
     object py_fut = create_future();
 

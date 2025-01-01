@@ -1,3 +1,5 @@
+#pragma once
+
 #include <fmt/core.h>
 
 #if defined(_MSC_VER)
@@ -13,7 +15,7 @@
         printf(":");                                                                               \
         printf("%d", __LINE__);                                                                    \
         printf("\t%s", __FUNCTION__);                                                              \
-        printf("\tDEBUG: ");                                                                       \
+        printf(":\t");                                                                             \
         fmt::println(format, ##__VA_ARGS__);                                                       \
     } while (0)
 

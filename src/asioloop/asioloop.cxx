@@ -38,14 +38,45 @@ NB_MODULE(__asioloop, m) {
         //   .def_ro("name", &EventLoop::name)
         .def("getnameinfo", &EventLoop::getnameinfo)
         // async def getaddrinfo(self, host, port, *, family=0, type=0, proto=0, flags=0)
-        .def("getaddrinfo", &EventLoop::getaddrinfo, nb::arg("host"), nb::arg("port"),
-             nb::kw_only(), nb::arg("family") = 0, nb::arg("type") = 0, nb::arg("proto") = 0,
+        .def("getaddrinfo",
+             &EventLoop::getaddrinfo,
+             nb::arg("host"),
+             nb::arg("port"),
+             nb::kw_only(),
+             nb::arg("family") = 0,
+             nb::arg("type") = 0,
+             nb::arg("proto") = 0,
              nb::arg("flags") = 0)
         .def("create_future", &EventLoop::create_future)
-        .def("create_task", &EventLoop::create_task, nb::arg("coro"), nb::kw_only(),
-             nb::arg("name") = nb::none(), nb::arg("context") = nb::none())
+        .def("create_task",
+             &EventLoop::create_task,
+             nb::arg("coro"),
+             nb::kw_only(),
+             nb::arg("name") = nb::none(),
+             nb::arg("context") = nb::none())
         .def("get_debug", &EventLoop::get_debug)
+        .def("stop", &EventLoop::stop)
+        .def("set_debug", &EventLoop::set_debug)
         .def("call_soon", &EventLoop::call_soon)
+        .def("call_at", &EventLoop::call_at)
+        .def("call_later", &EventLoop::call_later)
+        .def("create_connection",
+             &EventLoop::create_connection,
+             nb::arg("protocol_factory"),
+             nb::arg("host").none(),
+             nb::arg("host").none(),
+             nb::kw_only(),
+             nb::arg("ssl").none(),
+             nb::arg("family") = 0,
+             nb::arg("proto") = 0,
+             nb::arg("flags") = 0,
+             nb::arg("sock").none(),
+             nb::arg("local_addr").none(),
+             nb::arg("server_hostname").none(),
+             nb::arg("ssl_handshake_timeout").none(),
+             nb::arg("ssl_shutdown_timeout").none(),
+             nb::arg("happy_eyeballs_delay").none(),
+             nb::arg("interleave").none())
         .def("run_forever", &EventLoop::run_forever)
         .def("run_until_complete", &EventLoop::run_until_complete);
 }
