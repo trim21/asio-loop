@@ -33,20 +33,24 @@ NB_MODULE(__asioloop, m) {
     py_socket = m.import_("socket");
     py_socket.inc_ref();
 
-    nb::class_<EventLoop>(m, "EventLoop")
-        .def(nb::init<const std::string_view &>())
-        .def_ro("name", &EventLoop::name)
-        .def("getnameinfo", &EventLoop::getnameinfo)
-        // async def getaddrinfo(self, host, port, *, family=0, type=0, proto=0, flags=0)
-        .def("getaddrinfo", &EventLoop::getaddrinfo, nb::arg("host"), nb::arg("port"),
-             nb::kw_only(), nb::arg("family") = 0, nb::arg("type") = 0, nb::arg("proto") = 0,
-             nb::arg("flags") = 0)
-        .def("create_future", &EventLoop::create_future)
-        .def("create_task", &EventLoop::create_task, nb::arg("coro"), nb::kw_only(),
-             nb::arg("name") = nb::none(), nb::arg("context") = nb::none())
-        .def("get_debug", &EventLoop::get_debug)
-        .def("call_soon", &EventLoop::call_soon)
-        .def("run_forever", &EventLoop::run_forever)
-        .def("run_until_complete", &EventLoop::run_until_complete)
-        .def("__repr__", &EventLoop::repr);
+    auto c = nb::class_<EventLoop>(m, "EventLoop")
+                 .def(nb::init<>())
+                 //   .def_ro("name", &EventLoop::name)
+                 .def("getnameinfo", &EventLoop::getnameinfo)
+                 // async def getaddrinfo(self, host, port, *, family=0, type=0, proto=0, flags=0)
+                 .def("getaddrinfo", &EventLoop::getaddrinfo, nb::arg("host"), nb::arg("port"),
+                      nb::kw_only(), nb::arg("family") = 0, nb::arg("type") = 0,
+                      nb::arg("proto") = 0, nb::arg("flags") = 0)
+                 .def("create_future", &EventLoop::create_future)
+                 .def("create_task", &EventLoop::create_task, nb::arg("coro"), nb::kw_only(),
+                      nb::arg("name") = nb::none(), nb::arg("context") = nb::none())
+                 .def("get_debug", &EventLoop::get_debug)
+                 .def("call_soon", &EventLoop::call_soon)
+                 .def("run_forever", &EventLoop::run_forever)
+                 .def("run_until_complete", &EventLoop::run_until_complete);
+    //   .def("__repr__", &EventLoop::repr);
+
+    //     auto AbstractEventLoop = asyncio.attr("AbstractEventLoop");
+
+    //     c.attr("__bases__") = nb::make_tuple(AbstractEventLoop) + c.attr("__bases__");
 }

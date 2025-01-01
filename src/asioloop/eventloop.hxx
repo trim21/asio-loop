@@ -1,17 +1,10 @@
 #include <optional>
-#include <string>
 
-#include "common.hxx"
-
-#if win32
-#include <SDKDDKVer.h>
-#endif
-
-#include "boost/asio/post.hpp"
-#include <boost/asio.hpp>
 #include <fmt/core.h>
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/string.h>
+
+#include "asio.hxx"
 
 namespace nb = nanobind;
 namespace asio = boost::asio;
@@ -27,13 +20,11 @@ private:
     asio::io_context::strand loop;
 
 public:
-    std::string name;
+    EventLoop() : loop(asio::io_context::strand{io}) {}
 
-    EventLoop(const std::string_view &s) : loop(asio::io_context::strand{io}), name(s) {}
-
-    std::string repr() {
-        return fmt::format("<asioloop.EventLoop name={:?}>", this->name);
-    }
+    // std::string repr() {
+    // return fmt::format("<asioloop.EventLoop at 0x{:x}>", reinterpret_cast<size_t>(this));
+    // }
 
     nb::object get_debug() {
         return nb::cast(true);

@@ -9,13 +9,15 @@
 // 3. _ensure_fd_no_transport
 // 4. _ensure_resolve
 
-#include <Python.h>
 #include <errno.h>
 #include <optional>
 
+#include <Python.h>
+#include <fmt/base.h>
+#include <nanobind/nanobind.h>
+
+#include "asio.hxx"
 #include "eventloop.hxx"
-#include "fmt/base.h"
-#include "nanobind/nanobind.h"
 
 using object = nb::object;
 
@@ -29,6 +31,8 @@ void raise_dup_error() {
 }
 
 void EventLoop::run_forever() {
+    auto work_guard = asio::make_work_guard(io);
+
     io.run();
 }
 
@@ -41,11 +45,14 @@ nb::object EventLoop::create_task(nb::object coro, std::optional<nb::object> nam
         kwargs["context"] = context.value();
     }
 
+    debug_print("call py_asyncio_Task");
     auto task = py_asyncio_Task(coro, **kwargs);
     if (name.has_value()) {
+        debug_print("set name {}", nb::repr(name.value()).c_str());
         task.attr("set_name")(name.value());
     }
 
+    debug_print("return");
     return task;
 }
 
@@ -55,20 +62,21 @@ nb::object EventLoop::run_until_complete(nb::object future) {
     kwargs["loop"] = this;
     auto fut = py_ensure_future(future, **kwargs);
 
-    auto loop = this;
+    // auto loop = this;
 
     debug_print("add_done_callback");
     fut.attr("add_done_callback")(nb::cpp_function([=](nb::object fut) {
-        fmt::println("hello");
-        loop->io.stop();
+        debug_print("run_until_complete end");
+        // loop->io.stop();
     }));
 
-    debug_print("run_one");
+    auto work_guard = asio::make_work_guard(io);
+
+    debug_print("run start");
     this->io.run();
+    debug_print("run end");
 
-    // return future.attr("result")();
-
-    return nb::none();
+    return fut;
 }
 
 // void EventLoop::_sock_connect_cb(object pymod_socket, object fut, object sock, object addr) {
@@ -418,9 +426,13 @@ object EventLoop::getnameinfo(object sockaddr, int flags) {
 // }
 
 nb::object EventLoop::create_future() {
+    debug_print("create_future");
     nb::kwargs kwargs;
     kwargs["loop"] = this;
-    return py_asyncio_Future(*nb::tuple(), **kwargs);
+    debug_print("create_future");
+    auto b = py_asyncio_Future(*nb::tuple(), **kwargs);
+    debug_print("create_future return");
+    return b;
 }
 
 // void set_default_EventLoop(const asio::io_context::strand &strand) {
