@@ -8,6 +8,7 @@ project(
         'debug=false',
     ],
     meson_version: '>= 1.5.0',
+    version: 'dev',
 )
 
 if get_option('b_coverage')
