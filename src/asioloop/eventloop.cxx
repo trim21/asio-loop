@@ -3,12 +3,6 @@
 // accompanying file LICENSE_1_0.txt or copy at
 // http://www.boost.org/LICENSE_1_0.txt)
 
-// TODO:
-// 1. posix::stream_descriptor need windows version
-// 2. call_* need return async.Handle
-// 3. _ensure_fd_no_transport
-// 4. _ensure_resolve
-
 #include <errno.h>
 #include <optional>
 
@@ -62,12 +56,12 @@ nb::object EventLoop::run_until_complete(nb::object future) {
     kwargs["loop"] = this;
     auto fut = py_ensure_future(future, **kwargs);
 
-    // auto loop = this;
+    auto loop = this;
 
     debug_print("add_done_callback");
     fut.attr("add_done_callback")(nb::cpp_function([=](nb::object fut) {
         debug_print("run_until_complete end");
-        // loop->io.stop();
+        loop->io.stop();
     }));
 
     auto work_guard = asio::make_work_guard(io);
