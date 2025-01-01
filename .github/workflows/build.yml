@@ -24,7 +24,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Cache Meson packagecache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: subprojects/packagecache
           key: meson-packagecache-${{ runner.os }}-${{ hashFiles('subprojects/*.wrap') }}
