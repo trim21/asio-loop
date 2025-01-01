@@ -60,23 +60,40 @@ NB_MODULE(__asioloop, m) {
         .def("call_soon", &EventLoop::call_soon)
         .def("call_at", &EventLoop::call_at)
         .def("call_later", &EventLoop::call_later)
-        .def("create_connection",
-             &EventLoop::create_connection,
+        .def("create_server",
+             &EventLoop::create_server,
              nb::arg("protocol_factory"),
              nb::arg("host").none(),
              nb::arg("host").none(),
              nb::kw_only(),
-             nb::arg("ssl").none(),
              nb::arg("family") = 0,
-             nb::arg("proto") = 0,
-             nb::arg("flags") = 0,
+             nb::arg("flags") = 1, //  socket.AI_PASSIVE
              nb::arg("sock").none(),
-             nb::arg("local_addr").none(),
-             nb::arg("server_hostname").none(),
+             nb::arg("backlog") = 100,
+             nb::arg("ssl").none(),
+             nb::arg("reuse_address").none(),
+             nb::arg("reuse_port").none(),
+             nb::arg("keep_alive").none(),
              nb::arg("ssl_handshake_timeout").none(),
              nb::arg("ssl_shutdown_timeout").none(),
-             nb::arg("happy_eyeballs_delay").none(),
-             nb::arg("interleave").none())
+             nb::arg("start_serving") = true)
+        //    .def("create_connection",
+        //         &EventLoop::create_connection,
+        //         nb::arg("protocol_factory"),
+        //         nb::arg("host").none(),
+        //         nb::arg("host").none(),
+        //         nb::kw_only(),
+        //         nb::arg("ssl").none(),
+        //         nb::arg("family") = 0,
+        //         nb::arg("proto") = 0,
+        //         nb::arg("flags") = 0,
+        //         nb::arg("sock").none(),
+        //         nb::arg("local_addr").none(),
+        //         nb::arg("server_hostname").none(),
+        //         nb::arg("ssl_handshake_timeout").none(),
+        //         nb::arg("ssl_shutdown_timeout").none(),
+        //         nb::arg("happy_eyeballs_delay").none(),
+        //         nb::arg("interleave").none())
         .def("run_forever", &EventLoop::run_forever)
         .def("run_until_complete", &EventLoop::run_until_complete);
 }

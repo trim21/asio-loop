@@ -60,6 +60,21 @@ public:
     nb::object
     sock_sendfile(nb::object sock, nb::object file, int offset, int count, bool fallback);
 
+    nb::object create_server(nb::object protocol_factory,
+                             std::optional<std::string> host,
+                             std::optional<int> port,
+                             int family,
+                             int flags,
+                             std::optional<nb::object> sock,
+                             int backlog,
+                             std::optional<nb::object> ssl,
+                             std::optional<nb::object> reuse_address,
+                             std::optional<nb::object> reuse_port,
+                             std::optional<nb::object> keep_alive,
+                             std::optional<nb::object> ssl_handshake_timeout,
+                             std::optional<nb::object> ssl_shutdown_timeout,
+                             bool start_serving);
+
     nb::object create_connection(nb::object protocol_factory,
                                  std::optional<nb::object> host,
                                  std::optional<nb::object> port,

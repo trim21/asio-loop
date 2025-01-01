@@ -4,6 +4,7 @@
 // http://www.boost.org/LICENSE_1_0.txt)
 
 #include <errno.h>
+#include <exception>
 #include <optional>
 
 #include <Python.h>
@@ -11,6 +12,8 @@
 #include <nanobind/nanobind.h>
 
 #include "eventloop.hxx"
+
+extern nb::object py_socket;
 
 using object = nb::object;
 
@@ -147,6 +150,34 @@ void EventLoop::call_at(double when, nb::object f) {
     }));
 }
 
+nb::object EventLoop::create_server(nb::object protocol_factory,
+                                    std::optional<std::string> host,
+                                    std::optional<int> port,
+                                    int family,
+                                    int flags,
+                                    std::optional<nb::object> sock,
+                                    int backlog,
+                                    std::optional<nb::object> ssl,
+                                    std::optional<nb::object> reuse_address,
+                                    std::optional<nb::object> reuse_port,
+                                    std::optional<nb::object> keep_alive,
+                                    std::optional<nb::object> ssl_handshake_timeout,
+                                    std::optional<nb::object> ssl_shutdown_timeout,
+                                    bool start_serving) {
+
+    // UNIX socket
+    if (sock.has_value() && sock.value().attr("family").equal(nb::cast(AF_UNIX))) {
+        if (host.has_value() or port.has_value()) {
+            throw nb::value_error("host/port and sock can not be specified at the same time");
+        }
+
+        throw std::exception("unix socket server is not implement yet");
+        // tcp::acceptor acceptor(io, tcp::endpoint(tcp::v4(), port));
+    }
+
+    return nb::none();
+}
+
 // async def create_connection(
 //     self,
 //     protocol_factory,
@@ -179,6 +210,25 @@ nb::object EventLoop ::create_connection(nb::object protocol_factory,
                                          std::optional<nb::object> ssl_shutdown_timeout,
                                          std::optional<nb::object> happy_eyeballs_delay,
                                          std::optional<nb::object> interleave) {
+
+    // UNIX socket
+    if (sock.has_value() && sock.value().attr("family").equal(nb::cast(AF_UNIX))) {
+        if (host.has_value() or port.has_value()) {
+            throw nb::value_error("host/port and sock can not be specified at the same time");
+        }
+
+        // tcp::acceptor acceptor(io, tcp::endpoint(tcp::v4(), port));
+    }
+
+    using asio::ip::tcp;
+    // acceptor.async_accept([this](boost::system::error_code ec, tcp::socket socket) {
+    //     if (!ec) {
+    //         socket;
+    //     }
+
+    //     do_accept();
+    // });
+
     return nb::none();
 }
 
@@ -302,8 +352,6 @@ object EventLoop::sock_sendfile(object sock, object file, int offset, int count,
 //     throw_error_already_set();
 //     return object();
 // }
-
-extern nb::object py_socket;
 
 // TODO: use asio resolver
 nb::object
