@@ -1,25 +1,25 @@
-import rich
-import socket
 import asyncio
+import socket
+
+import rich
 
 from asioloop import AsioEventLoopPolicy
 
 asyncio.set_event_loop_policy(AsioEventLoopPolicy())
 
 loop = asyncio.new_event_loop()
-asyncio.set_event_loop(loop)
 
 rich.print(socket.getaddrinfo("www.baidu.com", 443))
 
-socket.SocketKind
 
+async def main() -> None:
+    loop = asyncio.get_event_loop()
+    print("hello")
 
-async def main():
-    # try:
     rich.print(await loop.getaddrinfo("www.baidu.com", 443))
-    print("done")
-    # except Exception as e:
-    # print("ee", repr(e))
+    print(asyncio.get_event_loop())
+    print(asyncio.events.get_running_loop())
+    await asyncio.sleep(1)
 
 
-print(loop.run_until_complete(main()))
+loop.run_until_complete(main())

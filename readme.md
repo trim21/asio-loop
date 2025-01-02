@@ -4,7 +4,7 @@ try to build asyncio loop with boost.asio
 
 - [x] run_forever
 - [x] run_until_complete
-- [ ] stop
+- [X] stop
 - [ ] is_running
 - [ ] is_closed
 - [ ] close

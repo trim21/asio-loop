@@ -32,11 +32,11 @@ cxx_id = compiler.get_id()
 
 nanobind_dep = dependency('nanobind', static: true)
 
-boost_dep = [dependency('boost', version: '>=1.78')]
+boost_dep = [dependency('boost', version: '>=1.78', static: true)]
 fmt = subproject('fmt')
 
 if build_machine.system() == 'linux'
-    boost_dep += [dependency('liburing')]
+    boost_dep += [dependency('liburing', static: true)]
 
     add_project_arguments('-DBOOST_ASIO_HAS_IO_URING', language: 'cpp')
     add_project_arguments('-DBOOST_ASIO_DISABLE_EPOLL', language: 'cpp')

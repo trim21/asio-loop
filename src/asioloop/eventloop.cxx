@@ -81,18 +81,6 @@ void raise_dup_error() {
 //     }
 // }
 
-void EventLoop::call_later(double delay, nb::object f) {
-    debug_print("call_later {}", delay);
-    auto p_timer = std::make_shared<asio::steady_timer>(
-        io,
-        std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::duration<double>(delay)));
-    p_timer->async_wait(asio::bind_executor(loop, [f](const boost::system::error_code &ec) {
-        nb::gil_scoped_acquire gil{};
-
-        f();
-    }));
-}
-
 void EventLoop::call_at(double when, nb::object f) {
     debug_print("call_at {}", when);
     using sc = std::chrono::steady_clock;

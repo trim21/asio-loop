@@ -258,11 +258,7 @@ poetry.toml
 pyrightconfig.json
 
 ### VisualStudioCode ###
-.vscode/*
-.vscode/settings.json
-.vscode/tasks.json
-.vscode/launch.json
-!.vscode/settings.example.json
+.vscode/
 
 ### Jetbrains IDE
 .idea/

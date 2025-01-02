@@ -1,6 +1,5 @@
 #include <exception>
 #include <future>
-#include <ios>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -12,12 +11,16 @@
 #include <nanobind/stl/string_view.h>
 #include <nanobind/stl/vector.h>
 
+#include <Python.h>
+
 #include "asio.hxx"
+#include "fmt/base.h"
 
 namespace nb = nanobind;
 namespace asio = boost::asio;
 using error_code = boost::system::error_code;
 
+extern nb::object py_asyncio_mod;
 extern nb::object OSError;
 extern nb::object py_asyncio_futures;
 extern nb::object py_asyncio_Future;
@@ -71,6 +74,13 @@ static nb::object error_code_to_py_error(const error_code &ec) {
     return b;
 }
 
+class Handler {
+public:
+    void cancel() {
+        fmt::println("handler cancel");
+    }
+};
+
 class EventLoop {
 private:
     asio::io_context io;
@@ -78,8 +88,10 @@ private:
 
     std::atomic_bool debug;
 
+    asio::ip::tcp::resolver resolver;
+
 public:
-    EventLoop() : loop(asio::io_context::strand{io}) {}
+    EventLoop() : loop(asio::io_context::strand{this->io}), resolver(this->io) {}
 
     bool get_debug() {
         return debug.load();
@@ -93,10 +105,25 @@ public:
         io.stop();
     }
 
+    void call_at(double when, nb::object f);
     void call_soon(nb::callable callback, nb::args args, nb::kwargs kwargs) {
         debug_print("call_soon");
 
         asio::post(this->loop.context(), [=] { callback(*args); });
+    }
+    Handler call_later(double delay, nb::object f, nb::args args, nb::kwargs kwargs) {
+        debug_print("call_later {}", delay);
+        auto p_timer = std::make_shared<asio::steady_timer>(
+            io,
+            std::chrono::duration_cast<std::chrono::nanoseconds>(
+                std::chrono::duration<double>(delay)));
+        p_timer->async_wait(asio::bind_executor(loop, [=](const boost::system::error_code &ec) {
+            nb::gil_scoped_acquire gil{};
+
+            f(*args);
+        }));
+
+        return Handler();
     }
 
     template <typename T> nb::object _wrap_co_to_py_future(std::future<T> fur) {
@@ -123,9 +150,27 @@ public:
     }
 
     void run_forever() {
+        py_asyncio_mod.attr("_set_running_loop")(nb::cast(this));
+
         auto work_guard = asio::make_work_guard(io);
 
         io.run();
+    }
+
+    nb::object shutdown_default_executor(std::optional<int> timeout) {
+        auto py_fut = create_future();
+
+        py_fut.attr("set_result")(nb::none());
+
+        return py_fut;
+    }
+
+    nb::object shutdown_asyncgens() {
+        auto py_fut = create_future();
+
+        py_fut.attr("set_result")(nb::none());
+
+        return py_fut;
     }
 
     nb::object run_until_complete(nb::object future) {
@@ -187,15 +232,13 @@ public:
 
         using asio::ip::tcp;
 
-        tcp::resolver r(this->io);
-
         tcp::resolver::results_type result;
 
         std::string host = nb::cast<std::string>(sockaddr[0]);
         std::string service = std::to_string(nb::cast<int>(sockaddr[1]));
 
         try {
-            r.async_resolve(
+            resolver.async_resolve(
                 host, service, [=](const error_code &ec, tcp::resolver::results_type iterator) {
                     debug_print("callback {} {}", ec.value(), result.size());
                     try {
@@ -237,6 +280,8 @@ public:
         return py_fut;
     }
 
+    void noop() {}
+
     nb::object getaddrinfo(std::string host, int port, int family, int type, int proto, int flags) {
         debug_print("getaddrinfo start");
 
@@ -244,12 +289,10 @@ public:
 
         using asio::ip::tcp;
 
-        tcp::resolver r(this->io);
-
         tcp::resolver::results_type result;
 
         try {
-            r.async_resolve(
+            resolver.async_resolve(
                 host,
                 std::to_string(port),
                 [=](const error_code &ec, tcp::resolver::results_type iterator) {
@@ -298,9 +341,6 @@ public:
         debug_print("getaddrinfo return");
         return py_fut;
     }
-
-    void call_later(double delay, nb::object f);
-    void call_at(double when, nb::object f);
 
     // TODO: NOT IMPLEMENTED
     nb::object

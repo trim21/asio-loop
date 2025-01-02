@@ -11,6 +11,8 @@ nb::object py_ensure_future;
 
 nb::object OSError;
 
+nb::object py_asyncio_mod;
+
 nb::object py_asyncio_futures;
 nb::object py_asyncio_Future;
 nb::object py_asyncio_Task;
@@ -25,6 +27,9 @@ NB_MODULE(__asioloop, m) {
     OSError.inc_ref();
 
     auto asyncio = m.import_("asyncio");
+
+    py_asyncio_mod = asyncio;
+    py_asyncio_mod.inc_ref();
 
     py_ensure_future = asyncio.attr("ensure_future");
     py_ensure_future.inc_ref();
@@ -46,6 +51,8 @@ NB_MODULE(__asioloop, m) {
 
     SocketKind = py_socket.attr("AddressFamily");
     SocketKind.inc_ref();
+
+    nb::class_<Handler>(m, "Handler").def("cancel", &Handler::cancel);
 
     nb::class_<EventLoop>(m, "EventLoop")
         .def(nb::init<>())
@@ -70,10 +77,15 @@ NB_MODULE(__asioloop, m) {
              nb::arg("context") = nb::none())
         .def("get_debug", &EventLoop::get_debug)
         .def("stop", &EventLoop::stop)
+        .def("close", &EventLoop::stop)
         .def("set_debug", &EventLoop::set_debug)
         .def("call_soon", &EventLoop::call_soon)
         .def("call_at", &EventLoop::call_at)
         .def("call_later", &EventLoop::call_later)
+        .def("shutdown_asyncgens", &EventLoop::shutdown_asyncgens)
+        .def("shutdown_default_executor",
+             &EventLoop::shutdown_default_executor,
+             nb::arg("timeout").none())
         .def("create_server",
              &EventLoop::create_server,
              nb::arg("protocol_factory"),
