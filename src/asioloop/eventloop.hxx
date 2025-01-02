@@ -2,17 +2,31 @@
 
 #include <fmt/core.h>
 #include <nanobind/nanobind.h>
+#include <nanobind/stl/optional.h>
 #include <nanobind/stl/string.h>
+#include <nanobind/stl/string_view.h>
+#include <string_view>
 
 #include "asio.hxx"
+#include "boost/asio/awaitable.hpp"
+#include "boost/asio/co_spawn.hpp"
+#include "boost/asio/detached.hpp"
+#include "boost/asio/ip/basic_resolver.hpp"
+#include "boost/asio/ip/basic_resolver_results.hpp"
+#include "boost/asio/ip/resolver_base.hpp"
+#include "boost/asio/post.hpp"
+#include "boost/asio/use_awaitable.hpp"
+#include "fmt/base.h"
 
 namespace nb = nanobind;
 namespace asio = boost::asio;
+using error_code = boost::system::error_code;
 
 extern nb::object py_asyncio_futures;
 extern nb::object py_asyncio_Future;
 extern nb::object py_asyncio_Task;
 extern nb::object py_ensure_future;
+extern nb::object py_socket;
 
 class EventLoop {
 private:
@@ -42,6 +56,10 @@ public:
         asio::post(this->io, [=] { callback(*args); });
     }
 
+    template <typename T> nb::object _co_to_py_future(asio::awaitable<T> co) {
+        return nb::none();
+    }
+
     void run_forever();
     nb::object run_until_complete(nb::object future);
 
@@ -50,7 +68,56 @@ public:
     nb::object
     create_task(nb::object coro, std::optional<nb::object> name, std::optional<nb::object> context);
 
-    nb::object getnameinfo(nb::object host, int flags);
+    asio::awaitable<void> _getnameinfo(const std::string_view &host,
+                                       const std::string_view &service) {
+        debug_print("getnameinfo start");
+        // nb::object py_fut = create_future();
+
+        using asio::ip::tcp;
+
+        tcp::resolver::results_type result;
+        tcp::resolver r(this->io);
+        try {
+            result = co_await r.async_resolve(host, service, asio::use_awaitable);
+        } catch (error_code &ec) {
+            fmt::println("{}", ec.to_string());
+            co_return;
+        }
+
+        int a = 0;
+        for (auto it : result) {
+            fmt::println("{} {}", a, it.host_name());
+            a++;
+        }
+    }
+
+    // TODO: use asio resolver
+    nb::object getnameinfo(nb::object host, int flags) {
+        debug_print("getnameaddr start");
+        nb::print(nb::repr(host));
+        debug_print("before co_spawn");
+        asio::co_spawn(io, _getnameinfo(nb::cast<nb::str>(host[0]).c_str(), ""), asio::detached);
+        debug_print("after co_spawn");
+
+        nb::object py_fut = create_future();
+
+        asio::post(loop, [=] {
+            nb::gil_scoped_acquire gil;
+
+            try {
+                nb::object res = py_socket.attr("getnameinfo")(host, flags);
+                debug_print("getnameaddr success");
+                py_fut.attr("set_result")(res);
+            } catch (const nb::python_error &e) {
+                py_fut.attr("set_exception")(e.value());
+            }
+        });
+
+        debug_print("getnameaddr return");
+
+        return py_fut;
+    }
+
     nb::object getaddrinfo(nb::object host, int port, int family, int type, int proto, int flags);
 
     void call_later(double delay, nb::object f);

@@ -13,8 +13,6 @@
 
 #include "eventloop.hxx"
 
-extern nb::object py_socket;
-
 using object = nb::object;
 
 bool _hasattr(nb::object o, const char *name) {
@@ -171,7 +169,7 @@ nb::object EventLoop::create_server(nb::object protocol_factory,
             throw nb::value_error("host/port and sock can not be specified at the same time");
         }
 
-        throw std::exception("unix socket server is not implement yet");
+        throw std::runtime_error("unix socket server is not implement yet");
         // tcp::acceptor acceptor(io, tcp::endpoint(tcp::v4(), port));
     }
 
@@ -368,34 +366,11 @@ EventLoop::getaddrinfo(nb::object host, int port, int family, int type, int prot
             debug_print("getaddrinfo success");
             py_fut.attr("set_result")(res);
         } catch (const nb::python_error &e) {
-            debug_print("getaddrinfo failed");
-            py_fut.attr("set_exception")(nb::handle(PyErr_GetRaisedException()));
+            py_fut.attr("set_exception")(e.value());
         }
     });
 
     debug_print("getaddrinfo return");
-    return py_fut;
-}
-
-// TODO: use asio resolver
-object EventLoop::getnameinfo(object sockaddr, int flags) {
-    debug_print("getnameaddr start");
-    object py_fut = create_future();
-
-    asio::post(loop, [=] {
-        nb::gil_scoped_acquire gil;
-
-        try {
-            nb::object res = py_socket.attr("getnameaddr")(sockaddr, flags);
-            debug_print("getnameaddr success");
-            py_fut.attr("set_result")(res);
-        } catch (const nb::python_error &e) {
-            debug_print("getnameaddr failed");
-            py_fut.attr("set_exception")(nb::handle(PyErr_GetRaisedException()));
-        }
-    });
-
-    debug_print("getnameaddr return");
     return py_fut;
 }
 
