@@ -219,7 +219,7 @@ public:
 
                         py_fut.attr("set_result")(nb::cast(v));
                         return;
-                    } catch (std::exception e) {
+                    } catch (const std::exception &e) {
                         debug_print("error {}", to_utf8(e.what()));
                         throw;
                     }
@@ -228,7 +228,7 @@ public:
         } catch (error_code &e) {
             debug_print("error code {}", e.value());
             py_fut.attr("set_exception")(error_code_to_py_error(e));
-        } catch (std::exception e) {
+        } catch (const std::exception &e) {
             debug_print("error {}", to_utf8(e.what()));
             throw;
         }
@@ -281,7 +281,7 @@ public:
 
                         py_fut.attr("set_result")(nb::cast(v));
                         return;
-                    } catch (std::exception e) {
+                    } catch (const std::exception &e) {
                         debug_print("error {}", to_utf8(e.what()));
                         throw;
                     }
@@ -290,7 +290,7 @@ public:
         } catch (error_code &e) {
             debug_print("error code {}", e.value());
             py_fut.attr("set_exception")(error_code_to_py_error(e));
-        } catch (std::exception e) {
+        } catch (const std::exception &e) {
             debug_print("error {}", to_utf8(e.what()));
             throw;
         }
