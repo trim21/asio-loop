@@ -206,8 +206,8 @@ public:
                         v.reserve(result.size());
 
                         for (auto it = iterator.begin(); it != iterator.end(); it++) {
-                            fmt::println("{} {}", a, it.host_name(), it.service_name());
-                            v.push_back(nb::make_tuple(it.host_name(), it.service_name()));
+                            fmt::println("{} {}", it->host_name(), it->service_name());
+                            v.push_back(nb::make_tuple(it->host_name(), it->service_name()));
                         }
 
                         py_fut.attr("set_result")(nb::cast(v));
