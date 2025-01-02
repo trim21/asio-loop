@@ -60,4 +60,8 @@ jobs:
           SCCACHE_GHA_ENABLED: "true"
 
       - name: Build
-        run: meson compile -C build
+        run: ninja -C build copy
+
+      - run: python src/a.py
+        env:
+          PYTHONPATH: "src"
