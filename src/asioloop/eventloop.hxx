@@ -1,5 +1,6 @@
 #include <exception>
 #include <future>
+#include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -14,6 +15,9 @@
 #include <Python.h>
 
 #include "asio.hxx"
+#include "boost/asio/bind_cancellation_slot.hpp"
+#include "boost/asio/cancellation_signal.hpp"
+#include "boost/asio/cancellation_type.hpp"
 #include "fmt/base.h"
 
 namespace nb = nanobind;
@@ -76,8 +80,20 @@ static nb::object error_code_to_py_error(const error_code &ec) {
 
 class Handler {
 public:
+    std::shared_ptr<asio::cancellation_signal> token;
+
+    Handler() {
+        this->token = std::make_shared<asio::cancellation_signal>();
+    }
+
+    Handler(std::shared_ptr<asio::cancellation_signal> token) {
+        this->token = token;
+    }
+
     void cancel() {
         fmt::println("handler cancel");
+        token->emit(asio::cancellation_type::none);
+        fmt::println("handler canceled");
     }
 };
 
@@ -105,25 +121,54 @@ public:
         io.stop();
     }
 
-    void call_at(double when, nb::object f);
-    void call_soon(nb::callable callback, nb::args args, nb::kwargs kwargs) {
+    Handler call_at(double when, nb::object f) {
+        debug_print("call_at {}", when);
+
+        auto h = Handler();
+
+        using sc = std::chrono::steady_clock;
+        auto p_timer = std::make_shared<asio::steady_timer>(
+            io, sc::duration(static_cast<sc::time_point::rep>(when)));
+        p_timer->async_wait(asio::bind_cancellation_slot(
+            h.token->slot(), asio::bind_executor(loop, [=](const boost::system::error_code &ec) {
+                nb::gil_scoped_acquire gil{};
+                f();
+            })));
+
+        return h;
+    }
+
+    Handler call_soon(nb::callable callback, nb::args args, nb::kwargs kwargs) {
         debug_print("call_soon");
 
-        asio::post(this->loop.context(), [=] { callback(*args); });
+        auto h = Handler();
+
+        asio::post(this->loop.context(), asio::bind_cancellation_slot(h.token->slot(), [=] {
+                       nb::gil_scoped_acquire gil{};
+                       callback(*args);
+                   }));
+
+        return h;
     }
+
     Handler call_later(double delay, nb::object f, nb::args args, nb::kwargs kwargs) {
         debug_print("call_later {}", delay);
+
+        auto h = Handler();
+
         auto p_timer = std::make_shared<asio::steady_timer>(
             io,
             std::chrono::duration_cast<std::chrono::nanoseconds>(
                 std::chrono::duration<double>(delay)));
-        p_timer->async_wait(asio::bind_executor(loop, [=](const boost::system::error_code &ec) {
-            nb::gil_scoped_acquire gil{};
 
-            f(*args);
-        }));
+        p_timer->async_wait(asio::bind_cancellation_slot(
+            h.token->slot(), asio::bind_executor(loop, [=](const boost::system::error_code &ec) {
+                nb::gil_scoped_acquire gil{};
 
-        return Handler();
+                f(*args);
+            })));
+
+        return h;
     }
 
     template <typename T> nb::object _wrap_co_to_py_future(std::future<T> fur) {

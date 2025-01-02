@@ -81,17 +81,6 @@ void raise_dup_error() {
 //     }
 // }
 
-void EventLoop::call_at(double when, nb::object f) {
-    debug_print("call_at {}", when);
-    using sc = std::chrono::steady_clock;
-    auto p_timer = std::make_shared<asio::steady_timer>(
-        io, sc::duration(static_cast<sc::time_point::rep>(when)));
-    p_timer->async_wait(asio::bind_executor(loop, [=](const boost::system::error_code &ec) {
-        nb::gil_scoped_acquire gil{};
-        f();
-    }));
-}
-
 nb::object EventLoop::create_server(nb::object protocol_factory,
                                     std::optional<std::string> host,
                                     std::optional<int> port,
