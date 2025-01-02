@@ -9,13 +9,21 @@ namespace nb = nanobind;
 
 nb::object py_ensure_future;
 
+nb::object OSError;
+
 nb::object py_asyncio_futures;
 nb::object py_asyncio_Future;
 nb::object py_asyncio_Task;
 
 nb::object py_socket;
+nb::object AddressFamily;
+nb::object SocketKind;
 
 NB_MODULE(__asioloop, m) {
+    auto builtins = m.import_("builtins");
+    OSError = builtins.attr("OSError");
+    OSError.inc_ref();
+
     auto asyncio = m.import_("asyncio");
 
     py_ensure_future = asyncio.attr("ensure_future");
@@ -32,6 +40,12 @@ NB_MODULE(__asioloop, m) {
 
     py_socket = m.import_("socket");
     py_socket.inc_ref();
+
+    AddressFamily = py_socket.attr("AddressFamily");
+    AddressFamily.inc_ref();
+
+    SocketKind = py_socket.attr("AddressFamily");
+    SocketKind.inc_ref();
 
     nb::class_<EventLoop>(m, "EventLoop")
         .def(nb::init<>())

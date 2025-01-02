@@ -1,7 +1,7 @@
 import socket
 import asyncio
 
-print(socket.getnameinfo(("93.184.216.34", 443), socket.NI_NOFQDN))
+print(socket.getaddrinfo("www.baidu.com"))
 
 
 loop = asyncio.new_event_loop()

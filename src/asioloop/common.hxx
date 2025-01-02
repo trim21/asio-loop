@@ -3,7 +3,7 @@
 #include <fmt/core.h>
 
 #if defined(_MSC_VER)
-#define win32 1
+#define WIN32 1
 #endif
 
 #ifdef PY_ASIO_LOOP_CPP_DEBUG

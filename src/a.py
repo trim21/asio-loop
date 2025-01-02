@@ -1,5 +1,6 @@
+import rich
+import socket
 import asyncio
-import time
 
 from asioloop import AsioEventLoopPolicy
 
@@ -8,27 +9,17 @@ asyncio.set_event_loop_policy(AsioEventLoopPolicy())
 loop = asyncio.new_event_loop()
 asyncio.set_event_loop(loop)
 
+rich.print(socket.getaddrinfo("www.baidu.com", 443))
+
+socket.SocketKind
+
 
 async def main():
-    print("async main start")
-    loop.call_at(time.time() + 3, lambda: print("hello"))
-    # start = time.time()
-    # print("start", start)
-    await asyncio.sleep(4)
-    # await asyncio.gather(asyncio.sleep(2), asyncio.sleep(3))
-    # print("end", time.time() - start)
-    # # try:
-    # #     print(await loop.getaddrinfo("example.com", 80))
-    # # except Exception as e:
-    # #     print(e)
-    print("async main end")
+    # try:
+    rich.print(await loop.getaddrinfo("www.baidu.com", 443))
+    print("done")
+    # except Exception as e:
+    # print("ee", repr(e))
 
 
-# loop.create_task(main())
-
-# loop.run_forever()
-loop.run_until_complete(main())
-
-# gc.collect()
-
-# print("done")
+print(loop.run_until_complete(main()))

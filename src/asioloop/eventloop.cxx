@@ -24,55 +24,11 @@ void raise_dup_error() {
     throw nb::python_error();
 }
 
-void EventLoop::run_forever() {
-    auto work_guard = asio::make_work_guard(io);
+// void EventLoop::run_forever()
 
-    io.run();
-}
-
-nb::object EventLoop::create_task(nb::object coro,
-                                  std::optional<nb::object> name,
-                                  std::optional<nb::object> context) {
-    debug_print("create_task");
-    nb::dict kwargs;
-    kwargs["loop"] = this;
-    if (context.has_value()) {
-        kwargs["context"] = context.value();
-    }
-
-    debug_print("call py_asyncio_Task");
-    auto task = py_asyncio_Task(coro, **kwargs);
-    if (name.has_value()) {
-        debug_print("set name {}", nb::repr(name.value()).c_str());
-        task.attr("set_name")(name.value());
-    }
-
-    debug_print("return");
-    return task;
-}
-
-nb::object EventLoop::run_until_complete(nb::object future) {
-    debug_print("run_until_complete");
-    nb::dict kwargs;
-    kwargs["loop"] = this;
-    auto fut = py_ensure_future(future, **kwargs);
-
-    auto loop = this;
-
-    debug_print("add_done_callback");
-    fut.attr("add_done_callback")(nb::cpp_function([=](nb::object fut) {
-        debug_print("run_until_complete end");
-        loop->io.stop();
-    }));
-
-    auto work_guard = asio::make_work_guard(io);
-
-    debug_print("run start");
-    this->io.run();
-    debug_print("run end");
-
-    return fut;
-}
+// nb::object EventLoop::create_task(nb::object coro,
+//                                   std::optional<nb::object> name,
+//                                   std::optional<nb::object> context)
 
 // void EventLoop::_sock_connect_cb(object pymod_socket, object fut, object sock, object addr) {
 //     try {
@@ -352,27 +308,8 @@ object EventLoop::sock_sendfile(object sock, object file, int offset, int count,
 // }
 
 // TODO: use asio resolver
-nb::object
-EventLoop::getaddrinfo(nb::object host, int port, int family, int type, int proto, int flags) {
-    debug_print("getaddrinfo start");
-    object py_fut = create_future();
-
-    asio::post(loop, [=] {
-        // asio::ip::tcp::resolver resolver(that->io);
-        nb::gil_scoped_acquire gil;
-
-        try {
-            nb::object res = py_socket.attr("getaddrinfo")(host, port, family, type, proto, flags);
-            debug_print("getaddrinfo success");
-            py_fut.attr("set_result")(res);
-        } catch (const nb::python_error &e) {
-            py_fut.attr("set_exception")(e.value());
-        }
-    });
-
-    debug_print("getaddrinfo return");
-    return py_fut;
-}
+// nb::object
+// EventLoop::getaddrinfo(nb::object host, int port, int family, int type, int proto, int flags)
 
 // void EventLoop::default_exception_handler(object context) {
 //     object message = context.attr("get")(str("message"));
@@ -480,15 +417,7 @@ EventLoop::getaddrinfo(nb::object host, int port, int family, int type, int prot
 //     }
 // }
 
-nb::object EventLoop::create_future() {
-    debug_print("create_future");
-    nb::kwargs kwargs;
-    kwargs["loop"] = this;
-    debug_print("create_future");
-    auto b = py_asyncio_Future(*nb::tuple(), **kwargs);
-    debug_print("create_future return");
-    return b;
-}
+// nb::object EventLoop::create_future()
 
 // void set_default_EventLoop(const asio::io_context::strand &strand) {
 //     class_<EventLoop, boost::noncopyable>("BoostAsioEventLoop", init<asio::io_context::strand

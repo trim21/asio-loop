@@ -44,7 +44,8 @@ endif
 
 add_project_arguments('-DPY_ASIO_LOOP_CPP_DEBUG', language: 'cpp')
 add_project_arguments('-DBOOST_ASIO_NO_DEPRECATED', language: 'cpp')
-add_project_arguments('-DBOOST_ASIO_HAS_CO_AWAIT', language: 'cpp')
+# add_project_arguments('-DBOOST_ASIO_HAS_CO_AWAIT', language: 'cpp')
+add_project_arguments('-D_CRT_SECURE_NO_WARNINGS', language: 'cpp')
 
 out = py.extension_module(
     '__asioloop',
