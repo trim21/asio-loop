@@ -31,6 +31,7 @@ extern nb::object SocketKind;
 static int code_page = GetACP();
 #endif
 
+#if WIN32
 static std::string to_utf8(std::string s) {
     int wchars_num = MultiByteToWideChar(code_page, 0, s.c_str(), -1, NULL, 0);
     wchar_t *wstr = new wchar_t[wchars_num];
@@ -50,6 +51,12 @@ static std::string to_utf8(std::string s) {
 
     return ss;
 }
+#else
+// no need to do anything
+static std::string to_utf8(std::string s) {
+    return s;
+}
+#endif
 
 static nb::object error_code_to_py_error(const error_code &ec) {
     debug_print("before cast");
