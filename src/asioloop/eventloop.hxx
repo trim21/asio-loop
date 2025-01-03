@@ -1,3 +1,4 @@
+#include <chrono>
 #include <cstdlib>
 #include <deque>
 #include <exception>
@@ -14,6 +15,7 @@
 #include <nanobind/stl/vector.h>
 
 #include <Python.h>
+#include <tuple>
 #include <vector>
 
 #include "asio.hxx"
@@ -108,6 +110,35 @@ public:
     }
 };
 
+class TimerHandler {
+    bool _cancelled = false;
+    std::shared_ptr<asio::steady_timer> timer;
+
+public:
+    std::shared_ptr<asio::cancellation_signal> token;
+    nb::object context;
+
+    explicit TimerHandler(nb::object context, std::shared_ptr<asio::steady_timer> timer) {
+        this->token = std::make_shared<asio::cancellation_signal>();
+        this->timer = timer;
+    }
+
+    nb::object get_context() {
+        return this->context;
+    }
+
+    void cancel() {
+        _cancelled = true;
+        fmt::println("handler cancel");
+        token->emit(asio::cancellation_type::none);
+        fmt::println("handler canceled");
+    }
+
+    bool cancelled() {
+        return this->_cancelled;
+    }
+};
+
 class EventLoop {
 private:
     asio::io_context io;
@@ -121,10 +152,35 @@ private:
 
     nb::object default_executor;
 
+    nb::object exception_handler = nb::none();
+    nb::object default_exception_handler;
+
 public:
     EventLoop() : loop(asio::io_context::strand{this->io}), resolver(this->io) {
         this->default_executor = nb::none();
-        debug.store(false);
+        debug.store(true);
+        this->default_exception_handler = nb::cpp_function(
+            [=](nb::object c) { fmt::println("exception {}", nb::repr(c).c_str()); });
+    }
+
+    void call_exception_handler(nb::object context) {
+        if (this->exception_handler.is_none()) {
+            this->default_exception_handler(context);
+            return;
+        }
+
+        this->exception_handler(context);
+    }
+
+    nb::object get_exception_handler() {
+        if (this->exception_handler.is_none()) {
+            return this->default_exception_handler;
+        }
+        return this->exception_handler;
+    }
+
+    void set_exception_handler(nb::object handler) {
+        this->exception_handler = handler;
     }
 
     void set_default_executor(nb::object executor) {
@@ -150,23 +206,6 @@ public:
         io.stop();
     }
 
-    Handler call_at(double when, nb::object f) {
-        debug_print("call_at {}", when);
-
-        auto h = Handler(nb::none());
-
-        using sc = std::chrono::steady_clock;
-        auto p_timer = std::make_shared<asio::steady_timer>(
-            io, sc::duration(static_cast<sc::time_point::rep>(when)));
-        p_timer->async_wait(asio::bind_cancellation_slot(
-            h.token->slot(), asio::bind_executor(loop, [=](const boost::system::error_code &ec) {
-                nb::gil_scoped_acquire gil{};
-                f();
-            })));
-
-        return h;
-    }
-
     Handler call_soon(nb::callable callback, nb::args args, nb::object context) {
         debug_print("call_soon");
 
@@ -180,15 +219,32 @@ public:
         return h;
     }
 
-    Handler call_later(double delay, nb::object callback, nb::args args, nb::object context) {
-        debug_print("call_later {}", delay);
+    TimerHandler call_at(double when, nb::object f) {
+        debug_print("call_at {}", when);
 
-        auto h = Handler(context);
+        using sc = std::chrono::steady_clock;
+        auto p_timer = std::make_shared<asio::steady_timer>(
+            io, sc::duration(static_cast<sc::time_point::rep>(when)));
+
+        auto h = TimerHandler(nb::none(), p_timer);
+
+        p_timer->async_wait(asio::bind_cancellation_slot(
+            h.token->slot(), asio::bind_executor(loop, [=](const boost::system::error_code &ec) {
+                nb::gil_scoped_acquire gil{};
+                f();
+            })));
+
+        return h;
+    }
+
+    TimerHandler call_later(double delay, nb::object callback, nb::args args, nb::object context) {
+        debug_print("call_later {}", delay);
 
         auto p_timer = std::make_shared<asio::steady_timer>(
             io,
-            std::chrono::duration_cast<std::chrono::nanoseconds>(
-                std::chrono::duration<double>(delay)));
+            std::chrono::duration_cast<std::chrono::seconds>(std::chrono::duration<double>(delay)));
+
+        auto h = TimerHandler(context, p_timer);
 
         p_timer->async_wait(asio::bind_cancellation_slot(
             h.token->slot(), asio::bind_executor(loop, [=](const boost::system::error_code &ec) {
@@ -201,7 +257,7 @@ public:
     }
 
     void run_forever() {
-        py_asyncio_mod.attr("_set_running_loop")(nb::cast(this));
+        py_asyncio_mod.attr("_set_running_loop")(this);
 
         auto work_guard = asio::make_work_guard(io);
         io.run();
@@ -338,7 +394,7 @@ public:
     sock_sendfile(nb::object sock, nb::object file, int offset, int count, bool fallback);
 
     nb::object create_server(nb::object protocol_factory,
-                             std::optional<std::string> host,
+                             nb::object host,
                              std::optional<int> port,
                              int family,
                              int flags,
@@ -352,18 +408,18 @@ public:
                              std::optional<nb::object> ssl_shutdown_timeout,
                              bool start_serving);
 
-    nb::object create_connection(nb::object protocol_factory,
-                                 std::optional<nb::object> host,
-                                 std::optional<nb::object> port,
-                                 std::optional<nb::object> ssl,
-                                 int family,
-                                 int proto,
-                                 int flags,
-                                 std::optional<nb::object> sock,
-                                 std::optional<nb::object> local_addr,
-                                 std::optional<nb::object> server_hostname,
-                                 std::optional<nb::object> ssl_handshake_timeout,
-                                 std::optional<nb::object> ssl_shutdown_timeout,
-                                 std::optional<nb::object> happy_eyeballs_delay,
-                                 std::optional<nb::object> interleave);
+    // nb::object create_connection(nb::object protocol_factory,
+    //                              std::optional<nb::object> host,
+    //                              std::optional<nb::object> port,
+    //                              std::optional<nb::object> ssl,
+    //                              int family,
+    //                              int proto,
+    //                              int flags,
+    //                              std::optional<nb::object> sock,
+    //                              std::optional<nb::object> local_addr,
+    //                              std::optional<nb::object> server_hostname,
+    //                              std::optional<nb::object> ssl_handshake_timeout,
+    //                              std::optional<nb::object> ssl_shutdown_timeout,
+    //                              std::optional<nb::object> happy_eyeballs_delay,
+    //                              std::optional<nb::object> interleave);
 };
