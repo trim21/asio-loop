@@ -2,13 +2,13 @@
 
 #include "common.hxx"
 
-#if defined(_MSC_VER)
-#define OS_WIN32 1
+#if OS_WIN32
 #include <SDKDDKVer.h>
 #endif
 
 #include <boost/asio.hpp>
 
+#include "boost/asio/bind_executor.hpp"
 #include <boost/asio/awaitable.hpp>
 #include <boost/asio/bind_cancellation_slot.hpp>
 #include <boost/asio/cancellation_signal.hpp>

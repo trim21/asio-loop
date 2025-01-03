@@ -70,12 +70,8 @@ extend-exclude = ['vendor', 'subprojects']
 src = ['src', 'tests']
 
 [tool.ruff.lint]
-extend-select = ['UP', 'I', 'E', "W", 'FA', 'ANN']
-ignore = ['ANN401', 'E721', 'E501', 'UP032']
-
-[tool.ruff.lint.per-file-ignores]
-"tests/**" = ['ANN']
-"setup.py" = ['ANN']
+extend-select = ['UP', 'I', 'E', "W", 'FA']
+ignore = ['E721', 'E501', 'UP032']
 
 [tool.coverage.run]
 source = [

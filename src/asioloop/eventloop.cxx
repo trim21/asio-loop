@@ -4,15 +4,10 @@
 // http://www.boost.org/LICENSE_1_0.txt)
 
 #include <errno.h>
-#include <exception>
-#include <optional>
 
 #include <Python.h>
 #include <fmt/base.h>
 #include <nanobind/nanobind.h>
-#include <stdexcept>
-#include <tuple>
-#include <utility>
 
 #include "eventloop.hxx"
 
@@ -90,42 +85,49 @@ void raise_dup_error() {
 //     }
 // }
 
-nb::object EventLoop::run_in_executor(nb::object executor, nb::object func, nb::args args) {
-    if (executor.is_none()) {
-        if (this->default_executor.is_none()) {
-            nb::dict kwargs;
-            kwargs["thread_name_prefix"] = "asyncio";
-            auto e = ThreadPoolExecutor(**kwargs);
+// nb::object EventLoop::run_in_executor(nb::object executor, nb::object func, nb::args args) {
+//     fmt::println("run_in_executor {} {} {}",
+//                  nb::repr(executor).c_str(),
+//                  nb::repr(func).c_str(),
+//                  nb::repr(args).c_str());
 
-            this->default_executor = e;
-        }
+//     if (executor.is_none()) {
+//         if (this->default_executor.is_none()) {
+//             nb::dict kwargs;
+//             kwargs["thread_name_prefix"] = "asyncio";
 
-        executor = this->default_executor;
-    }
+//             this->default_executor = ThreadPoolExecutor(**kwargs);
+//         }
 
-    auto t = executor.attr("submit")(func, *args);
+//         executor = this->default_executor;
+//     }
 
-    auto kwargs = nb::dict();
-    kwargs["loop"] = this;
-    return futures_wrap_future(t, **kwargs);
-}
+//     auto t = executor.attr("submit")(func, *args);
+
+//     t.attr("add_done_callback")(nb::cpp_function([=](nb::object f) { fmt::println("work done");
+//     }));
+
+//     auto f = futures_wrap_future(t);
+
+//     return f;
+// }
 
 nb::object
 EventLoop::call_soon_threadsafe(nb::callable callback, nb::args args, nb::object context) {
-    fmt::println("call_soon_threadsafe");
+    fmt::println("call_soon_threadsafe start");
 
     auto h = Handler(context);
 
-    // {
-    //     std::lock_guard<std::mutex> guard(mq_mutex);
-    //     // auto item = ;
-    //     mq.push_back(std::make_tuple(callback, args, context));
-    // }
-
-    asio::dispatch(this->loop.context(), [=] {
-        nb::gil_scoped_acquire gil{};
-        callback(*args);
-    });
+    asio::post(this->io, asio::bind_executor(this->loop, [=] {
+                   fmt::println("call_soon_threadsafe run callback start");
+                   RAII_GIL;
+                   if (context.is_none()) {
+                       callback(*args);
+                   } else {
+                       context.attr("run")(callback, *args);
+                   }
+                   fmt::println("call_soon_threadsafe run callback done");
+               }));
 
     fmt::println("call_soon_threadsafe done");
     return nb::cast(h);
@@ -149,102 +151,128 @@ nb::args make_args(Args &&...args) {
     return result;
 }
 
-nb::object
-EventLoop::getaddrinfo(std::string host, int port, int family, int type, int proto, int flags) {
-    debug_print("getaddrinfo start");
-    nb::args args;
+// nb::object
+// EventLoop::getaddrinfo(std::string host, int port, int family, int type, int proto, int flags) {
+//     debug_print("getaddrinfo start");
+//     nb::args args;
 
-    return run_in_executor(nb::none(),
-                           py_socket.attr("getaddrinfo"),
-                           make_args(host, port, family, type, proto, flags));
+//     return run_in_executor(nb::none(),
+//                            py_socket.attr("getaddrinfo"),
+//                            make_args(host, port, family, type, proto, flags));
 
-    auto py_fut = create_future();
+// auto py_fut = create_future();
 
-    // struct addrinfo s;
+// // struct addrinfo s;
 
-    using asio::ip::tcp;
+// using asio::ip::tcp;
 
-    tcp::resolver::results_type result;
+// tcp::resolver::results_type result;
 
-    try {
-        resolver.async_resolve(
-            host,
-            std::to_string(port),
-            [=](const error_code &ec, tcp::resolver::results_type iterator) {
-                debug_print("callback {} {}", ec.value(), iterator.size());
-                try {
-                    nb::gil_scoped_acquire gil{};
+// try {
+//     resolver.async_resolve(
+//         host,
+//         std::to_string(port),
+//         [=](const error_code &ec, tcp::resolver::results_type iterator) {
+//             debug_print("callback {} {}", ec.value(), iterator.size());
+//             try {
+//                 nb::gil_scoped_acquire gil{};
 
-                    if (ec) {
-                        debug_print("error {}", ec.message());
-                        py_fut.attr("set_exception")(error_code_to_py_error(ec));
-                        return;
-                    }
+//                 if (ec) {
+//                     debug_print("error {}", ec.message());
+//                     py_fut.attr("set_exception")(error_code_to_py_error(ec));
+//                     return;
+//                 }
 
-                    std::vector<nb::tuple> v;
-                    v.reserve(result.size());
+//                 std::vector<nb::tuple> v;
+//                 v.reserve(result.size());
 
-                    for (auto it = iterator.begin(); it != iterator.end(); it++) {
-                        v.push_back(nb::make_tuple(
-                            AddressFamily(nb::cast(it->endpoint().protocol().family())),
-                            SocketKind(it->endpoint().protocol().type()),
-                            it->endpoint().protocol().protocol(),
-                            it->host_name(),
-                            nb::make_tuple(it->endpoint().address().to_string(),
-                                           atoi(it->service_name().c_str())
-                                           // TODO: ipv6 got 2 extra field
-                                           )));
-                    }
+//                 for (auto it = iterator.begin(); it != iterator.end(); it++) {
+//                     v.push_back(nb::make_tuple(
+//                         AddressFamily(nb::cast(it->endpoint().protocol().family())),
+//                         SocketKind(it->endpoint().protocol().type()),
+//                         it->endpoint().protocol().protocol(),
+//                         it->host_name(),
+//                         nb::make_tuple(it->endpoint().address().to_string(),
+//                                        atoi(it->service_name().c_str())
+//                                        // TODO: ipv6 got 2 extra field
+//                                        )));
+//                 }
 
-                    py_fut.attr("set_result")(nb::cast(v));
-                    return;
-                } catch (const std::exception &e) {
-                    debug_print("error {}", to_utf8(e.what()));
-                    throw;
-                }
-                return;
-            });
-    } catch (error_code &e) {
-        debug_print("error code {}", e.value());
-        py_fut.attr("set_exception")(error_code_to_py_error(e));
-    } catch (const std::exception &e) {
-        debug_print("error {}", to_utf8(e.what()));
-        throw;
-    }
+//                 py_fut.attr("set_result")(nb::cast(v));
+//                 return;
+//             } catch (const std::exception &e) {
+//                 debug_print("error {}", to_utf8(e.what()));
+//                 throw;
+//             }
+//             return;
+//         });
+// } catch (error_code &e) {
+//     debug_print("error code {}", e.value());
+//     py_fut.attr("set_exception")(error_code_to_py_error(e));
+// } catch (const std::exception &e) {
+//     debug_print("error {}", to_utf8(e.what()));
+//     throw;
+// }
 
-    debug_print("getaddrinfo return");
-    return py_fut;
-}
+// debug_print("getaddrinfo return");
+// return py_fut;
+// }
 
-nb::object EventLoop::create_server(nb::object protocol_factory,
-                                    nb::object host,
-                                    std::optional<int> port,
-                                    int family,
-                                    int flags,
-                                    std::optional<nb::object> sock,
-                                    int backlog,
-                                    std::optional<nb::object> ssl,
-                                    std::optional<nb::object> reuse_address,
-                                    std::optional<nb::object> reuse_port,
-                                    std::optional<nb::object> keep_alive,
-                                    std::optional<nb::object> ssl_handshake_timeout,
-                                    std::optional<nb::object> ssl_shutdown_timeout,
-                                    bool start_serving) {
+// nb::object EventLoop::create_server(nb::object protocol_factory,
+//                                     nb::object host,
+//                                     std::optional<int> port,
+//                                     int family,
+//                                     int flags,
+//                                     std::optional<nb::object> sock,
+//                                     int backlog,
+//                                     std::optional<nb::object> ssl,
+//                                     std::optional<bool> reuse_address,
+//                                     std::optional<bool> reuse_port,
+//                                     std::optional<bool> keep_alive,
+//                                     std::optional<double> ssl_handshake_timeout,
+//                                     std::optional<double> ssl_shutdown_timeout,
+//                                     bool start_serving) {
 
-    // UNIX socket
-    if (sock.has_value() && sock.value().attr("family").equal(nb::cast(AF_UNIX))) {
-        if (host.is_none() or port.has_value()) {
-            throw nb::value_error("host/port and sock can not be specified at the same time");
-        }
+//     // UNIX socket
+//     if (sock.has_value() && sock.value().attr("family").equal(nb::cast(AF_UNIX))) {
+//         if (host.is_none() or port.has_value()) {
+//             throw nb::value_error("host/port and sock can not be specified at the same time");
+//         }
 
-        throw std::runtime_error("unix socket server is not implement yet");
-        // tcp::acceptor acceptor(io, tcp::endpoint(tcp::v4(), port));
-    }
+//         throw std::runtime_error("unix socket server is not implement yet");
+//         // tcp::acceptor acceptor(io, tcp::endpoint(tcp::v4(), port));
+//     }
 
-    auto py_fut = create_future();
+//     auto socket = py_socket.attr("socket")(2, 1, 0);
 
-    return py_fut;
-}
+//     // socket.attr("bind")
+
+//     auto py_fut = create_future();
+
+//     auto setsockopt = socket.attr("setsockopt");
+
+//     if (reuse_port.value_or(false)) {
+//         setsockopt(SOL_SOCKET, SO_REUSEADDR, 1);
+//     }
+
+// #if OS_POSIX
+//     if (reuse_port.value_or(false)) {
+//         setsockopt(SOL_SOCKET, SO_REUSEPORT, 1);
+//     }
+// #endif
+
+//     socket.attr("bind")(nb::make_tuple("127.0.0.1", 40404));
+//     socket.attr("setblocking")(false);
+
+//     auto server = Server({socket});
+
+//     auto tcp = TCPServer(*this, server, backlog, ssl, ssl_handshake_timeout,
+//     ssl_shutdown_timeout);
+
+//     py_fut.attr("set_result")(server);
+
+//     return py_fut;
+// }
 
 // async def create_connection(
 //     self,
@@ -406,10 +434,10 @@ nb::object EventLoop::create_server(nb::object protocol_factory,
 // }
 
 // // TODO: implement this
-object EventLoop::sock_sendfile(object sock, object file, int offset, int count, bool fallback) {
-    THROW_NOT_IMPLEMENT;
-    return object();
-}
+// object EventLoop::sock_sendfile(object sock, object file, int offset, int count, bool fallback) {
+//     THROW_NOT_IMPLEMENT;
+//     return object();
+// }
 
 // // TODO: implement this
 // object EventLoop::start_tls(object transport, object protocol, object sslcontext, bool
