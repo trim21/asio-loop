@@ -107,6 +107,7 @@ NB_MODULE(__asioloop, m) {
              nb::arg("context") = nb::none())
         .def("get_debug", &EventLoop::get_debug)
         .def("is_closed", &EventLoop::is_closed)
+        .def("is_running", &EventLoop::is_running)
         .def("stop", &EventLoop::stop)
         .def("close", &EventLoop::close)
         .def("set_debug", &EventLoop::set_debug)

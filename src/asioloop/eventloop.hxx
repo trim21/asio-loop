@@ -248,13 +248,21 @@ public:
         return h;
     }
 
+    bool running = false;
+
+    bool is_running() {
+        return running;
+    }
+
     void run_forever() {
         RAII_GIL;
 
         py_asyncio_mod.attr("_set_running_loop")(this);
 
         auto work_guard = asio::make_work_guard(io);
+        running = true;
         io.run();
+        running = false;
     }
 
     nb::object run_until_complete(nb::object future) {
