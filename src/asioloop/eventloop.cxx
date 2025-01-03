@@ -23,8 +23,8 @@ bool _hasattr(nb::object o, const char *name) {
     return PyObject_HasAttrString(o.ptr(), name);
 }
 
-void raise_dup_error() {
-    PyErr_SetString(PyExc_OSError, std::system_category().message(errno).c_str());
+void raise_os_error() {
+    PyErr_SetFromErrno(PyExc_OSError);
     throw nb::python_error();
 }
 
@@ -151,72 +151,30 @@ nb::args make_args(Args &&...args) {
     return result;
 }
 
-// nb::object
-// EventLoop::getaddrinfo(std::string host, int port, int family, int type, int proto, int flags) {
-//     debug_print("getaddrinfo start");
-//     nb::args args;
+nb::object
+EventLoop::getaddrinfo(std::string host, int port, int family, int type, int proto, int flags) {
+    using asio::ip::tcp;
 
-//     return run_in_executor(nb::none(),
-//                            py_socket.attr("getaddrinfo"),
-//                            make_args(host, port, family, type, proto, flags));
+    return _wrap_co_in_py_future([=, this]() -> asio::awaitable<nb::object> {
+        auto iterator = co_await this->_getaddrinfo(host, port, family, type, proto, flags);
 
-// auto py_fut = create_future();
+        std::vector<nb::tuple> v;
+        v.reserve(iterator.size());
 
-// // struct addrinfo s;
+        for (auto it = iterator.begin(); it != iterator.end(); it++) {
+            v.push_back(nb::make_tuple(AddressFamily(nb::cast(it->endpoint().protocol().family())),
+                                       it->endpoint().protocol().type(),
+                                       it->endpoint().protocol().protocol(),
+                                       it->host_name(),
+                                       nb::make_tuple(it->endpoint().address().to_string(),
+                                                      atoi(it->service_name().c_str())
+                                                      // TODO: ipv6 got 2 extra field
+                                                      )));
+        }
 
-// using asio::ip::tcp;
-
-// tcp::resolver::results_type result;
-
-// try {
-//     resolver.async_resolve(
-//         host,
-//         std::to_string(port),
-//         [=](const error_code &ec, tcp::resolver::results_type iterator) {
-//             debug_print("callback {} {}", ec.value(), iterator.size());
-//             try {
-//                 nb::gil_scoped_acquire gil{};
-
-//                 if (ec) {
-//                     debug_print("error {}", ec.message());
-//                     py_fut.attr("set_exception")(error_code_to_py_error(ec));
-//                     return;
-//                 }
-
-//                 std::vector<nb::tuple> v;
-//                 v.reserve(result.size());
-
-//                 for (auto it = iterator.begin(); it != iterator.end(); it++) {
-//                     v.push_back(nb::make_tuple(
-//                         AddressFamily(nb::cast(it->endpoint().protocol().family())),
-//                         SocketKind(it->endpoint().protocol().type()),
-//                         it->endpoint().protocol().protocol(),
-//                         it->host_name(),
-//                         nb::make_tuple(it->endpoint().address().to_string(),
-//                                        atoi(it->service_name().c_str())
-//                                        // TODO: ipv6 got 2 extra field
-//                                        )));
-//                 }
-
-//                 py_fut.attr("set_result")(nb::cast(v));
-//                 return;
-//             } catch (const std::exception &e) {
-//                 debug_print("error {}", to_utf8(e.what()));
-//                 throw;
-//             }
-//             return;
-//         });
-// } catch (error_code &e) {
-//     debug_print("error code {}", e.value());
-//     py_fut.attr("set_exception")(error_code_to_py_error(e));
-// } catch (const std::exception &e) {
-//     debug_print("error {}", to_utf8(e.what()));
-//     throw;
-// }
-
-// debug_print("getaddrinfo return");
-// return py_fut;
-// }
+        co_return nb::cast(v);
+    });
+}
 
 // nb::object EventLoop::create_server(nb::object protocol_factory,
 //                                     nb::object host,

@@ -9,13 +9,21 @@ on:
     branches:
       - master
 
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: true
+
 jobs:
+  wheels:
+    uses: ./.github/workflows/_build_wheels.yaml
+
   build:
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         python-version:
+          - "3.9"
           - "3.10"
           - "3.11"
           - "3.12"

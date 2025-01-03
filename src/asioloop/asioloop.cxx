@@ -10,6 +10,7 @@ namespace nb = nanobind;
 nb::object py_ensure_future;
 
 nb::object OSError;
+nb::object RuntimeError;
 
 nb::object py_asyncio_mod;
 
@@ -38,6 +39,9 @@ NB_MODULE(__asioloop, m) {
     auto builtins = m.import_("builtins");
     OSError = builtins.attr("OSError");
     OSError.inc_ref();
+
+    RuntimeError = builtins.attr("RuntimeError");
+    RuntimeError.inc_ref();
 
     ThreadPoolExecutor = m.import_("concurrent").attr("futures").attr("ThreadPoolExecutor");
     ThreadPoolExecutor.inc_ref();
@@ -85,17 +89,18 @@ NB_MODULE(__asioloop, m) {
         .def(nb::init<>())
         //   .def_ro("name", &EventLoop::name)
         .def("time", &EventLoop::time)
-        .def("getnameinfo", &EventLoop::getnameinfo)
-        // async def getaddrinfo(self, host, port, *, family=0, type=0, proto=0, flags=0)
-        //    .def("getaddrinfo",
-        //         &EventLoop::getaddrinfo,
-        //         nb::arg("host"),
-        //         nb::arg("port"),
-        //         nb::kw_only(),
-        //         nb::arg("family") = 0,
-        //         nb::arg("type") = 0,
-        //         nb::arg("proto") = 0,
-        //         nb::arg("flags") = 0)
+        //    .def("getnameinfo", &EventLoop::getnameinfo)
+        //     async def
+        //    getaddrinfo(self, host, port, *, family = 0, type = 0, proto = 0, flags = 0)
+        .def("getaddrinfo",
+             &EventLoop::getaddrinfo,
+             nb::arg("host"),
+             nb::arg("port"),
+             nb::kw_only(),
+             nb::arg("family") = 0,
+             nb::arg("type") = 0,
+             nb::arg("proto") = 0,
+             nb::arg("flags") = 0)
         .def("call_exception_handler", &EventLoop::call_exception_handler)
         .def("set_exception_handler", &EventLoop::set_exception_handler, nb::arg("handler").none())
         .def("get_exception_handler", &EventLoop::get_exception_handler)

@@ -1,8 +1,10 @@
 #include <chrono>
 #include <cstdlib>
 #include <exception>
+#include <functional>
 #include <memory>
 #include <optional>
+#include <vector>
 #include <string>
 
 #include <fmt/core.h>
@@ -13,11 +15,8 @@
 #include <nanobind/stl/vector.h>
 
 #include <Python.h>
-#include <vector>
 
 #include "asio.hxx"
-
-#include "common.hxx"
 
 namespace nb = nanobind;
 namespace asio = boost::asio;
@@ -25,6 +24,7 @@ using error_code = boost::system::error_code;
 
 extern nb::object py_asyncio_mod;
 extern nb::object OSError;
+extern nb::object RuntimeError;
 extern nb::object py_asyncio_futures;
 extern nb::object py_asyncio_Future;
 extern nb::object py_asyncio_Task;
@@ -380,8 +380,7 @@ public:
         return ts.count();
     }
 
-    // nb::object getaddrinfo(std::string host, int port, int family, int type, int proto, int
-    // flags);
+    nb::object getaddrinfo(std::string host, int port, int family, int type, int proto, int flags);
 
     // TODO: NOT IMPLEMENTED
 
@@ -399,4 +398,35 @@ public:
     //                              std::optional<nb::object> ssl_shutdown_timeout,
     //                              std::optional<nb::object> happy_eyeballs_delay,
     //                              std::optional<nb::object> interleave);
+
+    asio::awaitable<asio::ip::tcp::resolver::results_type>
+    _getaddrinfo(std::string host, int port, int family, int type, int proto, int flags) {
+        auto resolve_flags = static_cast<asio::ip::resolver_base::flags>(flags);
+
+        auto result = co_await resolver.async_resolve(
+            host, std::to_string(port), resolve_flags, asio::use_awaitable);
+
+        co_return result;
+    }
+
+    nb::object _wrap_co_in_py_future(std::function<asio::awaitable<nb::object>()> coro) {
+        auto future = create_future();
+
+        asio::co_spawn(
+            io,
+            [=]() -> asio::awaitable<void> {
+                try {
+                    nb::object result = co_await coro();
+                    future.attr("set_result")(result);
+                } catch (const error_code &ec) {
+                    future.attr("set_exception")(error_code_to_py_error(ec));
+                } catch (const std::exception &e) {
+                    future.attr("set_exception")(
+                        nb::cast(RuntimeError(nb::cast(to_utf8(e.what())))));
+                }
+            },
+            asio::detached);
+
+        return future;
+    };
 };
