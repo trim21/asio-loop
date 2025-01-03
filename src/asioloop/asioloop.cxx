@@ -64,6 +64,10 @@ NB_MODULE(__asioloop, m) {
     SocketKind = py_socket.attr("SocketKind");
     SocketKind.inc_ref();
 
+    nb::class_<Server>(m, "Server")
+        .def_ro("sockets", &Server::sockets)
+        .def("close", &Server::close);
+
     nb::class_<Handler>(m, "Handler")
         .def("cancel", &Handler::cancel)
         .def("cancelled", &Handler::cancelled)

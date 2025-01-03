@@ -401,11 +401,11 @@ public:
                              std::optional<nb::object> sock,
                              int backlog,
                              std::optional<nb::object> ssl,
-                             std::optional<nb::object> reuse_address,
-                             std::optional<nb::object> reuse_port,
-                             std::optional<nb::object> keep_alive,
-                             std::optional<nb::object> ssl_handshake_timeout,
-                             std::optional<nb::object> ssl_shutdown_timeout,
+                             std::optional<bool> reuse_address,
+                             std::optional<bool> reuse_port,
+                             std::optional<bool> keep_alive,
+                             std::optional<double> ssl_handshake_timeout,
+                             std::optional<double> ssl_shutdown_timeout,
                              bool start_serving);
 
     // nb::object create_connection(nb::object protocol_factory,
@@ -422,4 +422,14 @@ public:
     //                              std::optional<nb::object> ssl_shutdown_timeout,
     //                              std::optional<nb::object> happy_eyeballs_delay,
     //                              std::optional<nb::object> interleave);
+};
+class Server {
+public:
+    std::vector<nb::object> sockets;
+
+    Server(std::vector<nb::object> sockets) {
+        this->sockets = sockets;
+    }
+
+    void close() {}
 };

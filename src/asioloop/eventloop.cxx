@@ -11,8 +11,7 @@
 #include <fmt/base.h>
 #include <nanobind/nanobind.h>
 #include <stdexcept>
-#include <tuple>
-#include <utility>
+#include <vector>
 
 #include "eventloop.hxx"
 
@@ -224,11 +223,11 @@ nb::object EventLoop::create_server(nb::object protocol_factory,
                                     std::optional<nb::object> sock,
                                     int backlog,
                                     std::optional<nb::object> ssl,
-                                    std::optional<nb::object> reuse_address,
-                                    std::optional<nb::object> reuse_port,
-                                    std::optional<nb::object> keep_alive,
-                                    std::optional<nb::object> ssl_handshake_timeout,
-                                    std::optional<nb::object> ssl_shutdown_timeout,
+                                    std::optional<bool> reuse_address,
+                                    std::optional<bool> reuse_port,
+                                    std::optional<bool> keep_alive,
+                                    std::optional<double> ssl_handshake_timeout,
+                                    std::optional<double> ssl_shutdown_timeout,
                                     bool start_serving) {
 
     // UNIX socket
@@ -241,7 +240,25 @@ nb::object EventLoop::create_server(nb::object protocol_factory,
         // tcp::acceptor acceptor(io, tcp::endpoint(tcp::v4(), port));
     }
 
+    auto socket = py_socket.attr("socket")(2, 1, 0);
+
+    // socket.attr("bind")
+
     auto py_fut = create_future();
+
+    auto setsockopt = socket.attr("setsockopt");
+
+    if (reuse_port.value_or(false)) {
+        setsockopt(SOL_SOCKET, SO_REUSEADDR, 1);
+    }
+
+#if !OS_WIN32
+    if (reuse_port.value_or(false)) {
+        setsockopt(SOL_SOCKET, SO_REUSEPORT, 1);
+    }
+#endif
+
+    py_fut.attr("set_result")(Server({socket}));
 
     return py_fut;
 }
