@@ -11,6 +11,7 @@
 #include <fmt/base.h>
 #include <nanobind/nanobind.h>
 #include <stdexcept>
+#include <tuple>
 #include <utility>
 
 #include "eventloop.hxx"
@@ -117,7 +118,8 @@ EventLoop::call_soon_threadsafe(nb::callable callback, nb::args args, nb::object
 
     // {
     //     std::lock_guard<std::mutex> guard(mq_mutex);
-    //     mq.push_back(std::make_pair(callback, args));
+    //     // auto item = ;
+    //     mq.push_back(std::make_tuple(callback, args, context));
     // }
 
     asio::dispatch(this->loop.context(), [=] {
@@ -128,10 +130,33 @@ EventLoop::call_soon_threadsafe(nb::callable callback, nb::args args, nb::object
     fmt::println("call_soon_threadsafe done");
     return nb::cast(h);
 }
+template <nb::rv_policy policy = nb::rv_policy::automatic, typename... Args>
+nb::args make_args(Args &&...args) {
+    nb::args result = nb::steal<nb::args>(PyTuple_New((Py_ssize_t)sizeof...(Args)));
+
+    size_t nargs = 0;
+    PyObject *o = result.ptr();
+
+    (NB_TUPLE_SET_ITEM(
+         o,
+         nargs++,
+         nb::detail::make_caster<Args>::from_cpp((nb::detail::forward_t<Args>)args, policy, nullptr)
+             .ptr()),
+     ...);
+
+    nb::detail::tuple_check(o, sizeof...(Args));
+
+    return result;
+}
 
 nb::object
 EventLoop::getaddrinfo(std::string host, int port, int family, int type, int proto, int flags) {
     debug_print("getaddrinfo start");
+    nb::args args;
+
+    return run_in_executor(nb::none(),
+                           py_socket.attr("getaddrinfo"),
+                           make_args(host, port, family, type, proto, flags));
 
     auto py_fut = create_future();
 
@@ -192,7 +217,7 @@ EventLoop::getaddrinfo(std::string host, int port, int family, int type, int pro
 }
 
 nb::object EventLoop::create_server(nb::object protocol_factory,
-                                    std::optional<std::string> host,
+                                    nb::object host,
                                     std::optional<int> port,
                                     int family,
                                     int flags,
@@ -208,7 +233,7 @@ nb::object EventLoop::create_server(nb::object protocol_factory,
 
     // UNIX socket
     if (sock.has_value() && sock.value().attr("family").equal(nb::cast(AF_UNIX))) {
-        if (host.has_value() or port.has_value()) {
+        if (host.is_none() or port.has_value()) {
             throw nb::value_error("host/port and sock can not be specified at the same time");
         }
 
@@ -216,7 +241,9 @@ nb::object EventLoop::create_server(nb::object protocol_factory,
         // tcp::acceptor acceptor(io, tcp::endpoint(tcp::v4(), port));
     }
 
-    return nb::none();
+    auto py_fut = create_future();
+
+    return py_fut;
 }
 
 // async def create_connection(
@@ -237,41 +264,41 @@ nb::object EventLoop::create_server(nb::object protocol_factory,
 //     happy_eyeballs_delay=None,
 //     interleave=None,
 // ): ...
-nb::object EventLoop ::create_connection(nb::object protocol_factory,
-                                         std::optional<nb::object> host,
-                                         std::optional<nb::object> port,
-                                         std::optional<nb::object> ssl,
-                                         int family,
-                                         int proto,
-                                         int flags,
-                                         std::optional<nb::object> sock,
-                                         std::optional<nb::object> local_addr,
-                                         std::optional<nb::object> server_hostname,
-                                         std::optional<nb::object> ssl_handshake_timeout,
-                                         std::optional<nb::object> ssl_shutdown_timeout,
-                                         std::optional<nb::object> happy_eyeballs_delay,
-                                         std::optional<nb::object> interleave) {
+// nb::object EventLoop ::create_connection(nb::object protocol_factory,
+//                                          std::optional<nb::object> host,
+//                                          std::optional<nb::object> port,
+//                                          std::optional<nb::object> ssl,
+//                                          int family,
+//                                          int proto,
+//                                          int flags,
+//                                          std::optional<nb::object> sock,
+//                                          std::optional<nb::object> local_addr,
+//                                          std::optional<nb::object> server_hostname,
+//                                          std::optional<nb::object> ssl_handshake_timeout,
+//                                          std::optional<nb::object> ssl_shutdown_timeout,
+//                                          std::optional<nb::object> happy_eyeballs_delay,
+//                                          std::optional<nb::object> interleave) {
 
-    // UNIX socket
-    if (sock.has_value() && sock.value().attr("family").equal(nb::cast(AF_UNIX))) {
-        if (host.has_value() or port.has_value()) {
-            throw nb::value_error("host/port and sock can not be specified at the same time");
-        }
+//     // UNIX socket
+//     if (sock.has_value() && sock.value().attr("family").equal(nb::cast(AF_UNIX))) {
+//         if (host.has_value() or port.has_value()) {
+//             throw nb::value_error("host/port and sock can not be specified at the same time");
+//         }
 
-        // tcp::acceptor acceptor(io, tcp::endpoint(tcp::v4(), port));
-    }
+//         // tcp::acceptor acceptor(io, tcp::endpoint(tcp::v4(), port));
+//     }
 
-    using asio::ip::tcp;
-    // acceptor.async_accept([this](boost::system::error_code ec, tcp::socket socket) {
-    //     if (!ec) {
-    //         socket;
-    //     }
+//     using asio::ip::tcp;
+//     // acceptor.async_accept([this](boost::system::error_code ec, tcp::socket socket) {
+//     //     if (!ec) {
+//     //         socket;
+//     //     }
 
-    //     do_accept();
-    // });
+//     //     do_accept();
+//     // });
 
-    return nb::none();
-}
+//     return nb::none();
+// }
 
 // // TODO: support windows socket
 // object EventLoop::sock_recv(object sock, size_t nbytes) {

@@ -64,7 +64,15 @@ NB_MODULE(__asioloop, m) {
     SocketKind = py_socket.attr("SocketKind");
     SocketKind.inc_ref();
 
-    nb::class_<Handler>(m, "Handler").def("cancel", &Handler::cancel);
+    nb::class_<Handler>(m, "Handler")
+        .def("cancel", &Handler::cancel)
+        .def("cancelled", &Handler::cancelled)
+        .def("get_context", &Handler::get_context);
+
+    nb::class_<TimerHandler>(m, "TimerHandler")
+        .def("cancel", &TimerHandler::cancel)
+        .def("cancelled", &TimerHandler::cancelled)
+        .def("get_context", &TimerHandler::get_context);
 
     nb::class_<EventLoop>(m, "EventLoop")
         .def(nb::init<>())
@@ -80,6 +88,9 @@ NB_MODULE(__asioloop, m) {
              nb::arg("type") = 0,
              nb::arg("proto") = 0,
              nb::arg("flags") = 0)
+        .def("call_exception_handler", &EventLoop::call_exception_handler)
+        .def("set_exception_handler", &EventLoop::set_exception_handler, nb::arg("handler").none())
+        .def("get_exception_handler", &EventLoop::get_exception_handler)
         .def("create_future", &EventLoop::create_future)
         .def("create_task",
              &EventLoop::create_task,
@@ -125,19 +136,19 @@ NB_MODULE(__asioloop, m) {
         .def("create_server",
              &EventLoop::create_server,
              nb::arg("protocol_factory"),
-             nb::arg("host").none(),
-             nb::arg("host").none(),
+             nb::arg("host").none() = nb::none(),
+             nb::arg("port").none() = nb::none(),
              nb::kw_only(),
              nb::arg("family") = 0,
              nb::arg("flags") = 1, //  socket.AI_PASSIVE
-             nb::arg("sock").none(),
+             nb::arg("sock").none() = nb::none(),
              nb::arg("backlog") = 100,
-             nb::arg("ssl").none(),
-             nb::arg("reuse_address").none(),
-             nb::arg("reuse_port").none(),
-             nb::arg("keep_alive").none(),
-             nb::arg("ssl_handshake_timeout").none(),
-             nb::arg("ssl_shutdown_timeout").none(),
+             nb::arg("ssl").none() = nb::none(),
+             nb::arg("reuse_address").none() = nb::none(),
+             nb::arg("reuse_port").none() = nb::none(),
+             nb::arg("keep_alive").none() = nb::none(),
+             nb::arg("ssl_handshake_timeout").none() = nb::none(),
+             nb::arg("ssl_shutdown_timeout").none() = nb::none(),
              nb::arg("start_serving") = true)
         //    .def("create_connection",
         //         &EventLoop::create_connection,
