@@ -84,6 +84,7 @@ NB_MODULE(__asioloop, m) {
     nb::class_<EventLoop>(m, "EventLoop")
         .def(nb::init<>())
         //   .def_ro("name", &EventLoop::name)
+        .def("time", &EventLoop::time)
         .def("getnameinfo", &EventLoop::getnameinfo)
         // async def getaddrinfo(self, host, port, *, family=0, type=0, proto=0, flags=0)
         //    .def("getaddrinfo",
