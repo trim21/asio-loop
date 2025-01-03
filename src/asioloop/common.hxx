@@ -2,10 +2,6 @@
 
 #include <fmt/core.h>
 
-#if defined(_MSC_VER)
-#define WIN32 1
-#endif
-
 #ifdef PY_ASIO_LOOP_CPP_DEBUG
 
 #define debug_print(format, ...)                                                                   \

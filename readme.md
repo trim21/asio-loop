@@ -2,6 +2,9 @@ try to build asyncio loop with boost.asio
 
 ## AbstractEventLoop
 
+- [x] call_soon
+- [x] call_later
+- [x] call_at
 - [x] run_forever
 - [x] run_until_complete
 - [X] stop
@@ -10,15 +13,12 @@ try to build asyncio loop with boost.asio
 - [ ] close
 - [ ] shutdown_asyncgens
 - [ ] shutdown_default_executor
-- [x] call_soon
-- [x] call_later
-- [x] call_at
 - [ ] time
 - [x] create_future
 - [x] create_task
-- [ ] call_soon_threadsafe
-- [ ] run_in_executor
-- [ ] set_default_executor
+- [X] call_soon_threadsafe
+- [X] run_in_executor
+- [X] set_default_executor
 - [ ] getaddrinfo
 - [ ] getnameinfo
 - [ ] create_connection
