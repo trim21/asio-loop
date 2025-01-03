@@ -35,11 +35,17 @@ nanobind_dep = dependency('nanobind', static: true)
 boost_dep = [dependency('boost', version: '>=1.78', static: true)]
 fmt = subproject('fmt')
 
-if build_machine.system() == 'linux'
+os = build_machine.system()
+
+if os == 'linux'
     boost_dep += [dependency('liburing', static: true)]
 
     add_project_arguments('-DBOOST_ASIO_HAS_IO_URING', language: 'cpp')
     add_project_arguments('-DBOOST_ASIO_DISABLE_EPOLL', language: 'cpp')
+endif
+
+if os == 'linux' or os == 'macos'
+    add_project_arguments('-DOS_POSIX=1', language: 'cpp')
 endif
 
 # add_project_arguments('-DPY_ASIO_LOOP_CPP_DEBUG', language: 'cpp')
