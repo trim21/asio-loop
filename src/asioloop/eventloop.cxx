@@ -10,10 +10,18 @@
 #include <Python.h>
 #include <fmt/base.h>
 #include <nanobind/nanobind.h>
+#include <stdexcept>
+#include <utility>
 
 #include "eventloop.hxx"
 
 using object = nb::object;
+
+#define THROW_NOT_IMPLEMENT                                                                        \
+    do {                                                                                           \
+        PyErr_SetString(PyExc_NotImplementedError, "Not implemented!");                            \
+        throw nb::python_error();                                                                  \
+    } while (1)
 
 bool _hasattr(nb::object o, const char *name) {
     return PyObject_HasAttrString(o.ptr(), name);
@@ -80,6 +88,108 @@ void raise_dup_error() {
 //         }
 //     }
 // }
+
+nb::object EventLoop::run_in_executor(nb::object executor, nb::object func, nb::args args) {
+    if (executor.is_none()) {
+        if (this->default_executor.is_none()) {
+            nb::dict kwargs;
+            kwargs["thread_name_prefix"] = "asyncio";
+            auto e = ThreadPoolExecutor(**kwargs);
+
+            this->default_executor = e;
+        }
+
+        executor = this->default_executor;
+    }
+
+    auto t = executor.attr("submit")(func, *args);
+
+    auto kwargs = nb::dict();
+    kwargs["loop"] = this;
+    return futures_wrap_future(t, **kwargs);
+}
+
+nb::object
+EventLoop::call_soon_threadsafe(nb::callable callback, nb::args args, nb::object context) {
+    fmt::println("call_soon_threadsafe");
+
+    auto h = Handler(context);
+
+    // {
+    //     std::lock_guard<std::mutex> guard(mq_mutex);
+    //     mq.push_back(std::make_pair(callback, args));
+    // }
+
+    asio::dispatch(this->loop.context(), [=] {
+        nb::gil_scoped_acquire gil{};
+        callback(*args);
+    });
+
+    fmt::println("call_soon_threadsafe done");
+    return nb::cast(h);
+}
+
+nb::object
+EventLoop::getaddrinfo(std::string host, int port, int family, int type, int proto, int flags) {
+    debug_print("getaddrinfo start");
+
+    auto py_fut = create_future();
+
+    // struct addrinfo s;
+
+    using asio::ip::tcp;
+
+    tcp::resolver::results_type result;
+
+    try {
+        resolver.async_resolve(
+            host,
+            std::to_string(port),
+            [=](const error_code &ec, tcp::resolver::results_type iterator) {
+                debug_print("callback {} {}", ec.value(), iterator.size());
+                try {
+                    nb::gil_scoped_acquire gil{};
+
+                    if (ec) {
+                        debug_print("error {}", ec.message());
+                        py_fut.attr("set_exception")(error_code_to_py_error(ec));
+                        return;
+                    }
+
+                    std::vector<nb::tuple> v;
+                    v.reserve(result.size());
+
+                    for (auto it = iterator.begin(); it != iterator.end(); it++) {
+                        v.push_back(nb::make_tuple(
+                            AddressFamily(nb::cast(it->endpoint().protocol().family())),
+                            SocketKind(it->endpoint().protocol().type()),
+                            it->endpoint().protocol().protocol(),
+                            it->host_name(),
+                            nb::make_tuple(it->endpoint().address().to_string(),
+                                           atoi(it->service_name().c_str())
+                                           // TODO: ipv6 got 2 extra field
+                                           )));
+                    }
+
+                    py_fut.attr("set_result")(nb::cast(v));
+                    return;
+                } catch (const std::exception &e) {
+                    debug_print("error {}", to_utf8(e.what()));
+                    throw;
+                }
+                return;
+            });
+    } catch (error_code &e) {
+        debug_print("error code {}", e.value());
+        py_fut.attr("set_exception")(error_code_to_py_error(e));
+    } catch (const std::exception &e) {
+        debug_print("error {}", to_utf8(e.what()));
+        throw;
+    }
+
+    debug_print("getaddrinfo return");
+    return py_fut;
+}
 
 nb::object EventLoop::create_server(nb::object protocol_factory,
                                     std::optional<std::string> host,
@@ -270,8 +380,7 @@ nb::object EventLoop ::create_connection(nb::object protocol_factory,
 
 // // TODO: implement this
 object EventLoop::sock_sendfile(object sock, object file, int offset, int count, bool fallback) {
-    PyErr_SetString(PyExc_NotImplementedError, "Not implemented!");
-    throw nb::python_error();
+    THROW_NOT_IMPLEMENT;
     return object();
 }
 

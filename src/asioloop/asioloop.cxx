@@ -21,12 +21,24 @@ nb::object py_socket;
 nb::object AddressFamily;
 nb::object SocketKind;
 
+nb::object ThreadPoolExecutor;
+nb::object futures_wrap_future;
+
+// int IPPROTO_TCP;
+// int IPPROTO_UDP;
+
 NB_MODULE(__asioloop, m) {
     auto builtins = m.import_("builtins");
     OSError = builtins.attr("OSError");
     OSError.inc_ref();
 
+    ThreadPoolExecutor = m.import_("concurrent").attr("futures").attr("ThreadPoolExecutor");
+    ThreadPoolExecutor.inc_ref();
+
     auto asyncio = m.import_("asyncio");
+
+    futures_wrap_future = asyncio.attr("futures").attr("wrap_future");
+    futures_wrap_future.inc_ref();
 
     py_asyncio_mod = asyncio;
     py_asyncio_mod.inc_ref();
@@ -49,7 +61,7 @@ NB_MODULE(__asioloop, m) {
     AddressFamily = py_socket.attr("AddressFamily");
     AddressFamily.inc_ref();
 
-    SocketKind = py_socket.attr("AddressFamily");
+    SocketKind = py_socket.attr("SocketKind");
     SocketKind.inc_ref();
 
     nb::class_<Handler>(m, "Handler").def("cancel", &Handler::cancel);
@@ -76,16 +88,40 @@ NB_MODULE(__asioloop, m) {
              nb::arg("name") = nb::none(),
              nb::arg("context") = nb::none())
         .def("get_debug", &EventLoop::get_debug)
+        .def("is_closed", &EventLoop::is_closed)
         .def("stop", &EventLoop::stop)
         .def("close", &EventLoop::stop)
         .def("set_debug", &EventLoop::set_debug)
-        .def("call_soon", &EventLoop::call_soon)
+        .def("call_soon",
+             &EventLoop::call_soon,
+             nb::arg("callback"),
+             nb::arg("args"),
+             nb::kw_only(),
+             nb::arg("context").none() = nb::none())
         .def("call_at", &EventLoop::call_at)
-        .def("call_later", &EventLoop::call_later)
+        .def("call_later",
+             &EventLoop::call_later,
+             nb::arg("delay"),
+             nb::arg("callback"),
+             nb::arg("args"),
+             nb::kw_only(),
+             nb::arg("context").none() = nb::none())
         .def("shutdown_asyncgens", &EventLoop::shutdown_asyncgens)
         .def("shutdown_default_executor",
              &EventLoop::shutdown_default_executor,
              nb::arg("timeout").none())
+        .def("run_in_executor",
+             &EventLoop::run_in_executor,
+             nb::arg("executor").none(),
+             nb::arg("func"),
+             nb::arg("args"))
+        .def("call_soon_threadsafe",
+             &EventLoop::call_soon_threadsafe,
+             nb::arg("func"),
+             nb::arg("args"),
+             nb::kw_only(),
+             nb::arg("context").none() = nb::none())
+        .def("set_default_executor", &EventLoop::set_default_executor)
         .def("create_server",
              &EventLoop::create_server,
              nb::arg("protocol_factory"),

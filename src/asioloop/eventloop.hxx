@@ -1,9 +1,10 @@
+#include <cstdlib>
+#include <deque>
 #include <exception>
-#include <future>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <string>
-#include <string_view>
 
 #include <fmt/core.h>
 #include <nanobind/nanobind.h>
@@ -13,11 +14,11 @@
 #include <nanobind/stl/vector.h>
 
 #include <Python.h>
+#include <vector>
 
 #include "asio.hxx"
-#include "boost/asio/bind_cancellation_slot.hpp"
-#include "boost/asio/cancellation_signal.hpp"
-#include "boost/asio/cancellation_type.hpp"
+
+#include "common.hxx"
 #include "fmt/base.h"
 
 namespace nb = nanobind;
@@ -33,12 +34,14 @@ extern nb::object py_ensure_future;
 extern nb::object py_socket;
 extern nb::object AddressFamily;
 extern nb::object SocketKind;
+extern nb::object ThreadPoolExecutor;
+extern nb::object futures_wrap_future;
 
-#if WIN32
+#if OS_WIN32
 static int code_page = GetACP();
 #endif
 
-#if WIN32
+#if OS_WIN32
 static std::string to_utf8(std::string s) {
     int wchars_num = MultiByteToWideChar(code_page, 0, s.c_str(), -1, NULL, 0);
     wchar_t *wstr = new wchar_t[wchars_num];
@@ -70,7 +73,7 @@ static nb::object error_code_to_py_error(const error_code &ec) {
 
     auto msg = ec.message();
 
-#if WIN32
+#if OS_WIN32
     auto b = nb::cast(OSError(ec.value(), nb::cast(to_utf8(msg))));
 #else
     auto b = nb::cast(OSError(ec.value(), ec.message()));
@@ -79,21 +82,29 @@ static nb::object error_code_to_py_error(const error_code &ec) {
 }
 
 class Handler {
+    bool _cancelled = false;
+
 public:
     std::shared_ptr<asio::cancellation_signal> token;
+    nb::object context;
 
-    Handler() {
+    explicit Handler(nb::object context) {
         this->token = std::make_shared<asio::cancellation_signal>();
     }
 
-    Handler(std::shared_ptr<asio::cancellation_signal> token) {
-        this->token = token;
+    nb::object get_context() {
+        return this->context;
     }
 
     void cancel() {
+        _cancelled = true;
         fmt::println("handler cancel");
         token->emit(asio::cancellation_type::none);
         fmt::println("handler canceled");
+    }
+
+    bool cancelled() {
+        return this->_cancelled;
     }
 };
 
@@ -106,8 +117,26 @@ private:
 
     asio::ip::tcp::resolver resolver;
 
+    bool closed = false;
+
+    nb::object default_executor;
+
 public:
-    EventLoop() : loop(asio::io_context::strand{this->io}), resolver(this->io) {}
+    EventLoop() : loop(asio::io_context::strand{this->io}), resolver(this->io) {
+        this->default_executor = nb::none();
+        debug.store(false);
+    }
+
+    void set_default_executor(nb::object executor) {
+        this->default_executor = executor;
+    }
+
+    nb::object run_in_executor(nb::object executor, nb::object func, nb::args args);
+    nb::object call_soon_threadsafe(nb::callable callback, nb::args args, nb::object context);
+
+    bool is_closed() {
+        return this->closed;
+    }
 
     bool get_debug() {
         return debug.load();
@@ -124,7 +153,7 @@ public:
     Handler call_at(double when, nb::object f) {
         debug_print("call_at {}", when);
 
-        auto h = Handler();
+        auto h = Handler(nb::none());
 
         using sc = std::chrono::steady_clock;
         auto p_timer = std::make_shared<asio::steady_timer>(
@@ -138,23 +167,23 @@ public:
         return h;
     }
 
-    Handler call_soon(nb::callable callback, nb::args args, nb::kwargs kwargs) {
+    Handler call_soon(nb::callable callback, nb::args args, nb::object context) {
         debug_print("call_soon");
 
-        auto h = Handler();
+        auto h = Handler(context);
 
-        asio::post(this->loop.context(), asio::bind_cancellation_slot(h.token->slot(), [=] {
-                       nb::gil_scoped_acquire gil{};
-                       callback(*args);
-                   }));
+        asio::dispatch(this->loop.context(), asio::bind_cancellation_slot(h.token->slot(), [=] {
+                           nb::gil_scoped_acquire gil{};
+                           callback(*args);
+                       }));
 
         return h;
     }
 
-    Handler call_later(double delay, nb::object f, nb::args args, nb::kwargs kwargs) {
+    Handler call_later(double delay, nb::object callback, nb::args args, nb::object context) {
         debug_print("call_later {}", delay);
 
-        auto h = Handler();
+        auto h = Handler(context);
 
         auto p_timer = std::make_shared<asio::steady_timer>(
             io,
@@ -165,40 +194,16 @@ public:
             h.token->slot(), asio::bind_executor(loop, [=](const boost::system::error_code &ec) {
                 nb::gil_scoped_acquire gil{};
 
-                f(*args);
+                callback(*args);
             })));
 
         return h;
-    }
-
-    template <typename T> nb::object _wrap_co_to_py_future(std::future<T> fur) {
-        nb::object py_fut = create_future();
-
-        asio::post(io, [&]() {
-            try {
-                auto result = fur.get();
-                fmt::println("{:?}", nb::repr(nb::cast(result)).c_str());
-                py_fut.attr("set_result")(result);
-            } catch (const nb::python_error &e) {
-                debug_print("nb::python_error {}", e.what());
-                py_fut.attr("set_exception")(e.value());
-            } catch (const error_code &e) {
-                debug_print("error code {}", e.message());
-                py_fut.attr("set_exception")(nb::value_error(e.message().c_str()));
-            } catch (const std::exception &e) {
-                debug_print("std::exception {}", e.what());
-                py_fut.attr("set_exception")(nb::value_error(e.what()));
-            }
-        });
-
-        return py_fut;
     }
 
     void run_forever() {
         py_asyncio_mod.attr("_set_running_loop")(nb::cast(this));
 
         auto work_guard = asio::make_work_guard(io);
-
         io.run();
     }
 
@@ -269,7 +274,6 @@ public:
         return task;
     }
 
-    // TODO: use asio resolver
     nb::object getnameinfo(nb::object sockaddr, int flags) {
         debug_print("getnameaddr start");
 
@@ -327,65 +331,7 @@ public:
 
     void noop() {}
 
-    nb::object getaddrinfo(std::string host, int port, int family, int type, int proto, int flags) {
-        debug_print("getaddrinfo start");
-
-        auto py_fut = create_future();
-
-        using asio::ip::tcp;
-
-        tcp::resolver::results_type result;
-
-        try {
-            resolver.async_resolve(
-                host,
-                std::to_string(port),
-                [=](const error_code &ec, tcp::resolver::results_type iterator) {
-                    debug_print("callback {} {}", ec.value(), iterator.size());
-                    try {
-                        nb::gil_scoped_acquire gil{};
-
-                        if (ec) {
-                            debug_print("error {}", ec.message());
-                            py_fut.attr("set_exception")(error_code_to_py_error(ec));
-                            return;
-                        }
-
-                        std::vector<nb::tuple> v;
-                        v.reserve(result.size());
-
-                        for (auto it = iterator.begin(); it != iterator.end(); it++) {
-                            fmt::println("{} {}", it->host_name(), it->service_name());
-
-                            v.push_back(nb::make_tuple(
-                                AddressFamily(nb::cast(it->endpoint().data()->sa_family)),
-                                0,  // TODO
-                                0,  // TODO
-                                "", // TODO
-                                nb::make_tuple(
-                                    it->host_name(),
-                                    it->service_name()))); // TODO: ipv6 got 2 extra field
-                        }
-
-                        py_fut.attr("set_result")(nb::cast(v));
-                        return;
-                    } catch (const std::exception &e) {
-                        debug_print("error {}", to_utf8(e.what()));
-                        throw;
-                    }
-                    return;
-                });
-        } catch (error_code &e) {
-            debug_print("error code {}", e.value());
-            py_fut.attr("set_exception")(error_code_to_py_error(e));
-        } catch (const std::exception &e) {
-            debug_print("error {}", to_utf8(e.what()));
-            throw;
-        }
-
-        debug_print("getaddrinfo return");
-        return py_fut;
-    }
+    nb::object getaddrinfo(std::string host, int port, int family, int type, int proto, int flags);
 
     // TODO: NOT IMPLEMENTED
     nb::object
