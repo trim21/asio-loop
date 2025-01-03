@@ -373,6 +373,13 @@ public:
 
     void noop() {}
 
+    double time() {
+        auto now = std::chrono::steady_clock::now();
+        const std::chrono::duration<double> ts = now.time_since_epoch();
+
+        return ts.count();
+    }
+
     // nb::object getaddrinfo(std::string host, int port, int family, int type, int proto, int
     // flags);
 

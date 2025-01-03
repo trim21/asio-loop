@@ -8,12 +8,12 @@ try to build asyncio loop with boost.asio
 - [x] run_forever
 - [x] run_until_complete
 - [X] stop
-- [ ] is_running
+- [X] is_running
 - [X] is_closed
 - [X] close
 - [X] shutdown_asyncgens
 - [X] shutdown_default_executor
-- [ ] time
+- [X] time
 - [x] create_future
 - [x] create_task
 - [X] call_soon_threadsafe
