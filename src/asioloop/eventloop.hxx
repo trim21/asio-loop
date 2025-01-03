@@ -1,9 +1,7 @@
 #include <chrono>
 #include <cstdlib>
-#include <deque>
 #include <exception>
 #include <memory>
-#include <mutex>
 #include <optional>
 #include <string>
 
@@ -15,13 +13,11 @@
 #include <nanobind/stl/vector.h>
 
 #include <Python.h>
-#include <tuple>
 #include <vector>
 
 #include "asio.hxx"
 
 #include "common.hxx"
-#include "fmt/base.h"
 
 namespace nb = nanobind;
 namespace asio = boost::asio;
@@ -38,6 +34,9 @@ extern nb::object AddressFamily;
 extern nb::object SocketKind;
 extern nb::object ThreadPoolExecutor;
 extern nb::object futures_wrap_future;
+
+#define RAII_GIL                                                                                   \
+    nb::gil_scoped_acquire gil {}
 
 #if OS_WIN32
 static int code_page = GetACP();
@@ -100,9 +99,7 @@ public:
 
     void cancel() {
         _cancelled = true;
-        fmt::println("handler cancel");
         token->emit(asio::cancellation_type::none);
-        fmt::println("handler canceled");
     }
 
     bool cancelled() {
@@ -129,9 +126,7 @@ public:
 
     void cancel() {
         _cancelled = true;
-        fmt::println("handler cancel");
         token->emit(asio::cancellation_type::none);
-        fmt::println("handler canceled");
     }
 
     bool cancelled() {
@@ -189,6 +184,10 @@ public:
 
     nb::object run_in_executor(nb::object executor, nb::object func, nb::args args);
     nb::object call_soon_threadsafe(nb::callable callback, nb::args args, nb::object context);
+
+    void close() {
+        this->closed = true;
+    }
 
     bool is_closed() {
         return this->closed;
@@ -257,7 +256,10 @@ public:
     }
 
     void run_forever() {
-        py_asyncio_mod.attr("_set_running_loop")(this);
+        {
+            RAII_GIL;
+            py_asyncio_mod.attr("_set_running_loop")(this);
+        }
 
         auto work_guard = asio::make_work_guard(io);
         io.run();

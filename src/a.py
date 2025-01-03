@@ -1,32 +1,28 @@
-# import asyncio
+import asyncio
+import asyncio.futures
+import socket
+from concurrent.futures import ThreadPoolExecutor
 
-# from asioloop import AsioEventLoopPolicy
+from asioloop import AsioEventLoopPolicy
 
-# asyncio.set_event_loop_policy(AsioEventLoopPolicy())
+asyncio.set_event_loop_policy(AsioEventLoopPolicy())
 
-# loop = asyncio.new_event_loop()
-
-
-# class EchoServer(asyncio.Protocol):
-#     def connection_made(self, transport: asyncio.Transport) -> None:
-#         addr = transport.get_extra_info("peername")
-#         print("connection from {}".format(addr))
-#         self.transport = transport
-
-#     def data_received(self, data: bytes) -> None:
-#         print("data received: {}".format(data.decode()))
-#         self.transport.write(data)
-#         self.transport.close()
+loop = asyncio.new_event_loop()
 
 
-# coro = loop.create_server(EchoServer, "127.0.0.1", 40404)
-# server = loop.run_until_complete(coro)
-# print("serving on {}".format(server.sockets[0]))
+print(socket.getaddrinfo("github.com", 443))
 
-# try:
-#     loop.run_forever()
-# except KeyboardInterrupt:
-#     print("exit")
-# finally:
-#     server.close()
-#     loop.close()
+
+async def main() -> None:
+    loop = asyncio.get_event_loop()
+    loop.set_default_executor(ThreadPoolExecutor())
+
+    result = await loop.run_in_executor(None, socket.getaddrinfo, "github.com", 443)
+
+    assert result
+
+    print("async main done")
+
+
+loop.run_until_complete(main())
+print("done")

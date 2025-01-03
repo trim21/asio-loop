@@ -7,8 +7,11 @@ import os
 import socket
 import ssl
 import sys
+import warnings
+import weakref
 from asyncio import tasks
 from collections.abc import Iterable, Sequence
+from concurrent.futures import ThreadPoolExecutor
 from itertools import chain
 from ssl import SSLContext
 
@@ -64,9 +67,44 @@ def _set_reuseport(sock):
 
 
 class EventLoop(_EventLoop):
+    def __init__(self) -> None:
+        super().__init__()
+        self._default_executor = None
+        # A weak set of all asynchronous generators that are
+        # being iterated by the loop.
+        self._asyncgens = weakref.WeakSet()
+
+        # Set to True when `loop.shutdown_asyncgens` is called.
+        self._asyncgens_shutdown_called = False
+        # Set to True when `loop.shutdown_default_executor` is called.
+        self._executor_shutdown_called = False
+
     @property
     def _debug(self) -> bool:
         return self.get_debug()
+
+    def call_soon(self, callback, *args, context=None) -> None:
+        return super().call_soon(callback, *args, context=context)
+
+    async def getaddrinfo(self, host, port, *, family=0, type=0, proto=0, flags=0):
+        return await self.run_in_executor(
+            None, socket.getaddrinfo, host, port, family, type, proto, flags
+        )
+
+    def set_default_executor(self, executor):
+        if not isinstance(executor, ThreadPoolExecutor):
+            raise TypeError("executor must be ThreadPoolExecutor instance")
+        self._default_executor = executor
+
+    def run_in_executor(self, executor, func, *args):
+        if executor is None:
+            executor = self._default_executor
+            # Only check when the default executor is being used
+            if executor is None:
+                executor = ThreadPoolExecutor(thread_name_prefix="asyncio")
+                self._default_executor = executor
+
+        return asyncio.futures.wrap_future(executor.submit(func, *args), loop=self)
 
     # we can't really implement a coroutine in c-level, raw future is eager executed.
     # so we need to wrap it in to python coroutine to make it
@@ -264,6 +302,49 @@ class EventLoop(_EventLoop):
             return await loop.getaddrinfo(
                 host, port, family=family, type=type, proto=proto, flags=flags
             )
+
+    def _asyncgen_finalizer_hook(self, agen):
+        self._asyncgens.discard(agen)
+        if not self.is_closed():
+            self.call_soon_threadsafe(self.create_task, agen.aclose())
+
+    def _asyncgen_firstiter_hook(self, agen):
+        if self._asyncgens_shutdown_called:
+            warnings.warn(
+                f"asynchronous generator {agen!r} was scheduled after "
+                f"loop.shutdown_asyncgens() call",
+                ResourceWarning,
+                source=self,
+            )
+
+        self._asyncgens.add(agen)
+
+    async def shutdown_asyncgens(self):
+        """Shutdown all active asynchronous generators."""
+        self._asyncgens_shutdown_called = True
+
+        if not len(self._asyncgens):
+            # If Python version is <3.6 or we don't have any asynchronous
+            # generators alive.
+            return
+
+        closing_agens = list(self._asyncgens)
+        self._asyncgens.clear()
+
+        results = await tasks.gather(
+            *[ag.aclose() for ag in closing_agens], return_exceptions=True
+        )
+
+        for result, agen in zip(results, closing_agens):
+            if isinstance(result, Exception):
+                self.call_exception_handler(
+                    {
+                        "message": f"an error occurred during closing of "
+                        f"asynchronous generator {agen!r}",
+                        "exception": result,
+                        "asyncgen": agen,
+                    }
+                )
 
 
 class AsioEventLoopPolicy(asyncio.events.BaseDefaultEventLoopPolicy):

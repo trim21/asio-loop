@@ -25,10 +25,16 @@ nb::object SocketKind;
 nb::object ThreadPoolExecutor;
 nb::object futures_wrap_future;
 
+nb::object weakref;
+nb::object WeakSet;
 // int IPPROTO_TCP;
 // int IPPROTO_UDP;
 
 NB_MODULE(__asioloop, m) {
+    weakref = m.import_("weakref");
+    WeakSet = weakref.attr("WeakSet");
+    WeakSet.inc_ref();
+
     auto builtins = m.import_("builtins");
     OSError = builtins.attr("OSError");
     OSError.inc_ref();
@@ -86,15 +92,15 @@ NB_MODULE(__asioloop, m) {
         //   .def_ro("name", &EventLoop::name)
         .def("getnameinfo", &EventLoop::getnameinfo)
         // async def getaddrinfo(self, host, port, *, family=0, type=0, proto=0, flags=0)
-        .def("getaddrinfo",
-             &EventLoop::getaddrinfo,
-             nb::arg("host"),
-             nb::arg("port"),
-             nb::kw_only(),
-             nb::arg("family") = 0,
-             nb::arg("type") = 0,
-             nb::arg("proto") = 0,
-             nb::arg("flags") = 0)
+        //    .def("getaddrinfo",
+        //         &EventLoop::getaddrinfo,
+        //         nb::arg("host"),
+        //         nb::arg("port"),
+        //         nb::kw_only(),
+        //         nb::arg("family") = 0,
+        //         nb::arg("type") = 0,
+        //         nb::arg("proto") = 0,
+        //         nb::arg("flags") = 0)
         .def("call_exception_handler", &EventLoop::call_exception_handler)
         .def("set_exception_handler", &EventLoop::set_exception_handler, nb::arg("handler").none())
         .def("get_exception_handler", &EventLoop::get_exception_handler)
@@ -108,7 +114,7 @@ NB_MODULE(__asioloop, m) {
         .def("get_debug", &EventLoop::get_debug)
         .def("is_closed", &EventLoop::is_closed)
         .def("stop", &EventLoop::stop)
-        .def("close", &EventLoop::stop)
+        .def("close", &EventLoop::close)
         .def("set_debug", &EventLoop::set_debug)
         .def("call_soon",
              &EventLoop::call_soon,
@@ -124,22 +130,22 @@ NB_MODULE(__asioloop, m) {
              nb::arg("args"),
              nb::kw_only(),
              nb::arg("context").none() = nb::none())
-        .def("shutdown_asyncgens", &EventLoop::shutdown_asyncgens)
+        //    .def("shutdown_asyncgens", &EventLoop::shutdown_asyncgens)
         .def("shutdown_default_executor",
              &EventLoop::shutdown_default_executor,
              nb::arg("timeout").none())
-        .def("run_in_executor",
-             &EventLoop::run_in_executor,
-             nb::arg("executor").none(),
-             nb::arg("func"),
-             nb::arg("args"))
+        //    .def("run_in_executor",
+        //         &EventLoop::run_in_executor,
+        //         nb::arg("executor").none(),
+        //         nb::arg("func"),
+        //         nb::arg("args"))
         .def("call_soon_threadsafe",
              &EventLoop::call_soon_threadsafe,
              nb::arg("func"),
              nb::arg("args"),
              nb::kw_only(),
              nb::arg("context").none() = nb::none())
-        .def("set_default_executor", &EventLoop::set_default_executor)
+        //    .def("set_default_executor", &EventLoop::set_default_executor)
         .def("create_server",
              &EventLoop::create_server,
              nb::arg("protocol_factory"),
@@ -174,6 +180,6 @@ NB_MODULE(__asioloop, m) {
         //         nb::arg("ssl_shutdown_timeout").none(),
         //         nb::arg("happy_eyeballs_delay").none(),
         //         nb::arg("interleave").none())
-        .def("run_forever", &EventLoop::run_forever)
+        .def("run_forever", &EventLoop::run_forever, nb::call_guard<nb::gil_scoped_release>())
         .def("run_until_complete", &EventLoop::run_until_complete);
 }

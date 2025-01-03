@@ -91,13 +91,17 @@ void raise_dup_error() {
 // }
 
 nb::object EventLoop::run_in_executor(nb::object executor, nb::object func, nb::args args) {
+    fmt::println("run_in_executor {} {} {}",
+                 nb::repr(executor).c_str(),
+                 nb::repr(func).c_str(),
+                 nb::repr(args).c_str());
+
     if (executor.is_none()) {
         if (this->default_executor.is_none()) {
             nb::dict kwargs;
             kwargs["thread_name_prefix"] = "asyncio";
-            auto e = ThreadPoolExecutor(**kwargs);
 
-            this->default_executor = e;
+            this->default_executor = ThreadPoolExecutor(**kwargs);
         }
 
         executor = this->default_executor;
@@ -105,27 +109,34 @@ nb::object EventLoop::run_in_executor(nb::object executor, nb::object func, nb::
 
     auto t = executor.attr("submit")(func, *args);
 
-    auto kwargs = nb::dict();
-    kwargs["loop"] = this;
-    return futures_wrap_future(t, **kwargs);
+    t.attr("add_done_callback")(nb::cpp_function([=](nb::object f) { fmt::println("work done"); }));
+
+    auto f = futures_wrap_future(t);
+
+    return f;
 }
 
 nb::object
 EventLoop::call_soon_threadsafe(nb::callable callback, nb::args args, nb::object context) {
-    fmt::println("call_soon_threadsafe");
+    fmt::println("call_soon_threadsafe start");
 
     auto h = Handler(context);
 
-    // {
-    //     std::lock_guard<std::mutex> guard(mq_mutex);
-    //     // auto item = ;
-    //     mq.push_back(std::make_tuple(callback, args, context));
-    // }
+    asio::post(this->io, asio::bind_executor(this->loop, [=] {
+                   fmt::println("call_soon_threadsafe run callback start");
+                   nb::gil_scoped_acquire gil{};
+                   fmt::println("{} {} {}",
+                                nb::repr(callback).c_str(),
+                                nb::repr(args).c_str(),
+                                nb::repr(context).c_str());
 
-    asio::dispatch(this->loop.context(), [=] {
-        nb::gil_scoped_acquire gil{};
-        callback(*args);
-    });
+                   if (context.is_none()) {
+                       callback(*args);
+                   } else {
+                       context.attr("run")(callback, *args);
+                   }
+                   fmt::println("call_soon_threadsafe run callback done");
+               }));
 
     fmt::println("call_soon_threadsafe done");
     return nb::cast(h);
@@ -158,62 +169,62 @@ EventLoop::getaddrinfo(std::string host, int port, int family, int type, int pro
                            py_socket.attr("getaddrinfo"),
                            make_args(host, port, family, type, proto, flags));
 
-    auto py_fut = create_future();
+    // auto py_fut = create_future();
 
-    // struct addrinfo s;
+    // // struct addrinfo s;
 
-    using asio::ip::tcp;
+    // using asio::ip::tcp;
 
-    tcp::resolver::results_type result;
+    // tcp::resolver::results_type result;
 
-    try {
-        resolver.async_resolve(
-            host,
-            std::to_string(port),
-            [=](const error_code &ec, tcp::resolver::results_type iterator) {
-                debug_print("callback {} {}", ec.value(), iterator.size());
-                try {
-                    nb::gil_scoped_acquire gil{};
+    // try {
+    //     resolver.async_resolve(
+    //         host,
+    //         std::to_string(port),
+    //         [=](const error_code &ec, tcp::resolver::results_type iterator) {
+    //             debug_print("callback {} {}", ec.value(), iterator.size());
+    //             try {
+    //                 nb::gil_scoped_acquire gil{};
 
-                    if (ec) {
-                        debug_print("error {}", ec.message());
-                        py_fut.attr("set_exception")(error_code_to_py_error(ec));
-                        return;
-                    }
+    //                 if (ec) {
+    //                     debug_print("error {}", ec.message());
+    //                     py_fut.attr("set_exception")(error_code_to_py_error(ec));
+    //                     return;
+    //                 }
 
-                    std::vector<nb::tuple> v;
-                    v.reserve(result.size());
+    //                 std::vector<nb::tuple> v;
+    //                 v.reserve(result.size());
 
-                    for (auto it = iterator.begin(); it != iterator.end(); it++) {
-                        v.push_back(nb::make_tuple(
-                            AddressFamily(nb::cast(it->endpoint().protocol().family())),
-                            SocketKind(it->endpoint().protocol().type()),
-                            it->endpoint().protocol().protocol(),
-                            it->host_name(),
-                            nb::make_tuple(it->endpoint().address().to_string(),
-                                           atoi(it->service_name().c_str())
-                                           // TODO: ipv6 got 2 extra field
-                                           )));
-                    }
+    //                 for (auto it = iterator.begin(); it != iterator.end(); it++) {
+    //                     v.push_back(nb::make_tuple(
+    //                         AddressFamily(nb::cast(it->endpoint().protocol().family())),
+    //                         SocketKind(it->endpoint().protocol().type()),
+    //                         it->endpoint().protocol().protocol(),
+    //                         it->host_name(),
+    //                         nb::make_tuple(it->endpoint().address().to_string(),
+    //                                        atoi(it->service_name().c_str())
+    //                                        // TODO: ipv6 got 2 extra field
+    //                                        )));
+    //                 }
 
-                    py_fut.attr("set_result")(nb::cast(v));
-                    return;
-                } catch (const std::exception &e) {
-                    debug_print("error {}", to_utf8(e.what()));
-                    throw;
-                }
-                return;
-            });
-    } catch (error_code &e) {
-        debug_print("error code {}", e.value());
-        py_fut.attr("set_exception")(error_code_to_py_error(e));
-    } catch (const std::exception &e) {
-        debug_print("error {}", to_utf8(e.what()));
-        throw;
-    }
+    //                 py_fut.attr("set_result")(nb::cast(v));
+    //                 return;
+    //             } catch (const std::exception &e) {
+    //                 debug_print("error {}", to_utf8(e.what()));
+    //                 throw;
+    //             }
+    //             return;
+    //         });
+    // } catch (error_code &e) {
+    //     debug_print("error code {}", e.value());
+    //     py_fut.attr("set_exception")(error_code_to_py_error(e));
+    // } catch (const std::exception &e) {
+    //     debug_print("error {}", to_utf8(e.what()));
+    //     throw;
+    // }
 
-    debug_print("getaddrinfo return");
-    return py_fut;
+    // debug_print("getaddrinfo return");
+    // return py_fut;
 }
 
 nb::object EventLoop::create_server(nb::object protocol_factory,
