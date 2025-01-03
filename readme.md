@@ -9,10 +9,10 @@ try to build asyncio loop with boost.asio
 - [x] run_until_complete
 - [X] stop
 - [ ] is_running
-- [ ] is_closed
-- [ ] close
-- [ ] shutdown_asyncgens
-- [ ] shutdown_default_executor
+- [X] is_closed
+- [X] close
+- [X] shutdown_asyncgens
+- [X] shutdown_default_executor
 - [ ] time
 - [x] create_future
 - [x] create_task
@@ -50,9 +50,9 @@ try to build asyncio loop with boost.asio
 - [ ] remove_signal_handler
 - [ ] set_task_factory
 - [ ] get_task_factory
-- [ ] get_exception_handler
-- [ ] set_exception_handler
-- [ ] default_exception_handler
-- [ ] call_exception_handler
+- [X] get_exception_handler
+- [X] set_exception_handler
+- [X] default_exception_handler
+- [X] call_exception_handler
 - [x] get_debug
 - [x] set_debug
