@@ -433,3 +433,50 @@ public:
 
     void close() {}
 };
+
+class StreamServer {
+private:
+    EventLoop &loop;
+
+    Server server;
+    int backlog;
+    std::optional<nb::object> ssl;
+    std::optional<double> ssl_handshake_timeout;
+    std::optional<double> ssl_shutdown_timeout;
+
+public:
+    StreamServer(EventLoop &loop,
+                 Server server,
+                 int backlog,
+                 std::optional<nb::object> ssl,
+                 std::optional<double> ssl_handshake_timeout,
+                 std::optional<double> ssl_shutdown_timeout)
+        : loop(loop), server(server), backlog(backlog) {
+
+        if (!ssl.has_value()) {
+            if (ssl_handshake_timeout.has_value()) {
+                throw nb::value_error("ssl_handshake_timeout is only meaningful with ssl");
+            }
+            if (ssl_shutdown_timeout.has_value()) {
+                throw nb::value_error("ssl_shutdown_timeout is only meaningful with ssl");
+            }
+        }
+
+        this->ssl = ssl;
+        this->ssl_handshake_timeout = ssl_handshake_timeout;
+        this->ssl_shutdown_timeout = ssl_shutdown_timeout;
+    };
+
+    void listen() {}
+};
+
+class TCPServer : StreamServer {
+public:
+    TCPServer(EventLoop &loop,
+              Server server,
+              int backlog,
+              std::optional<nb::object> ssl,
+              std::optional<double> ssl_handshake_timeout,
+              std::optional<double> ssl_shutdown_timeout)
+        : StreamServer(loop, server, backlog, ssl, ssl_handshake_timeout, ssl_shutdown_timeout) {}
+};

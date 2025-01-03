@@ -2,8 +2,7 @@
 
 #include "common.hxx"
 
-#if defined(_MSC_VER)
-#define OS_WIN32 1
+#if OS_WIN32
 #include <SDKDDKVer.h>
 #endif
 

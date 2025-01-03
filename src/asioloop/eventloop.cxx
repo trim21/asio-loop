@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "eventloop.hxx"
+#include "tcp_server.hxx"
 
 using object = nb::object;
 
@@ -252,13 +253,20 @@ nb::object EventLoop::create_server(nb::object protocol_factory,
         setsockopt(SOL_SOCKET, SO_REUSEADDR, 1);
     }
 
-#if !OS_WIN32
+#if OS_POSIX
     if (reuse_port.value_or(false)) {
         setsockopt(SOL_SOCKET, SO_REUSEPORT, 1);
     }
 #endif
 
-    py_fut.attr("set_result")(Server({socket}));
+    socket.attr("bind")(nb::make_tuple("127.0.0.1", 40404));
+    socket.attr("setblocking")(false);
+
+    auto server = Server({socket});
+
+    auto tcp = TCPServer(*this, server, backlog, ssl, ssl_handshake_timeout, ssl_shutdown_timeout);
+
+    py_fut.attr("set_result")(server);
 
     return py_fut;
 }

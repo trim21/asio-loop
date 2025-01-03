@@ -37,6 +37,8 @@ fmt = subproject('fmt')
 
 os = build_machine.system()
 
+
+
 if os == 'linux'
     boost_dep += [dependency('liburing', static: true)]
 
@@ -44,7 +46,9 @@ if os == 'linux'
     add_project_arguments('-DBOOST_ASIO_DISABLE_EPOLL', language: 'cpp')
 endif
 
-if os == 'linux' or os == 'macos'
+if os == 'windows'
+    add_project_arguments('-DOS_WIN32=1', language: 'cpp')
+elif os == 'linux' or os == 'darwin'
     add_project_arguments('-DOS_POSIX=1', language: 'cpp')
 endif
 

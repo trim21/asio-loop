@@ -62,7 +62,7 @@ jobs:
       - name: Build
         run: ninja -C build copy
 
-      - run: python run_e2e.py
-        timeout-minutes: 1
+      - run: python e2e.py
+        timeout-minutes: 10
         env:
           PYTHONPATH: "src"

@@ -6,6 +6,7 @@
 namespace nb = nanobind;
 
 #include "eventloop.hxx"
+#include "tcp_server.hxx"
 
 nb::object py_ensure_future;
 
@@ -63,6 +64,8 @@ NB_MODULE(__asioloop, m) {
 
     SocketKind = py_socket.attr("SocketKind");
     SocketKind.inc_ref();
+
+    nb::class_<TCPServer>(m, "TCPServer");
 
     nb::class_<Server>(m, "Server")
         .def_ro("sockets", &Server::sockets)
