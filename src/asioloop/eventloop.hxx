@@ -1,9 +1,7 @@
 #include <chrono>
 #include <cstdlib>
-#include <deque>
 #include <exception>
 #include <memory>
-#include <mutex>
 #include <optional>
 #include <string>
 
@@ -15,13 +13,11 @@
 #include <nanobind/stl/vector.h>
 
 #include <Python.h>
-#include <tuple>
 #include <vector>
 
 #include "asio.hxx"
 
 #include "common.hxx"
-#include "fmt/base.h"
 
 namespace nb = nanobind;
 namespace asio = boost::asio;
@@ -38,6 +34,9 @@ extern nb::object AddressFamily;
 extern nb::object SocketKind;
 extern nb::object ThreadPoolExecutor;
 extern nb::object futures_wrap_future;
+
+#define RAII_GIL                                                                                   \
+    nb::gil_scoped_acquire gil {}
 
 #if OS_WIN32
 static int code_page = GetACP();
@@ -100,9 +99,7 @@ public:
 
     void cancel() {
         _cancelled = true;
-        fmt::println("handler cancel");
         token->emit(asio::cancellation_type::none);
-        fmt::println("handler canceled");
     }
 
     bool cancelled() {
@@ -129,9 +126,7 @@ public:
 
     void cancel() {
         _cancelled = true;
-        fmt::println("handler cancel");
         token->emit(asio::cancellation_type::none);
-        fmt::println("handler canceled");
     }
 
     bool cancelled() {
@@ -150,14 +145,11 @@ private:
 
     bool closed = false;
 
-    nb::object default_executor;
-
     nb::object exception_handler = nb::none();
     nb::object default_exception_handler;
 
 public:
     EventLoop() : loop(asio::io_context::strand{this->io}), resolver(this->io) {
-        this->default_executor = nb::none();
         debug.store(true);
         this->default_exception_handler = nb::cpp_function(
             [=](nb::object c) { fmt::println("exception {}", nb::repr(c).c_str()); });
@@ -183,12 +175,11 @@ public:
         this->exception_handler = handler;
     }
 
-    void set_default_executor(nb::object executor) {
-        this->default_executor = executor;
-    }
-
-    nb::object run_in_executor(nb::object executor, nb::object func, nb::args args);
     nb::object call_soon_threadsafe(nb::callable callback, nb::args args, nb::object context);
+
+    void close() {
+        this->closed = true;
+    }
 
     bool is_closed() {
         return this->closed;
@@ -231,6 +222,7 @@ public:
         p_timer->async_wait(asio::bind_cancellation_slot(
             h.token->slot(), asio::bind_executor(loop, [=](const boost::system::error_code &ec) {
                 nb::gil_scoped_acquire gil{};
+
                 f();
             })));
 
@@ -257,26 +249,12 @@ public:
     }
 
     void run_forever() {
+        RAII_GIL;
+
         py_asyncio_mod.attr("_set_running_loop")(this);
 
         auto work_guard = asio::make_work_guard(io);
         io.run();
-    }
-
-    nb::object shutdown_default_executor(std::optional<int> timeout) {
-        auto py_fut = create_future();
-
-        py_fut.attr("set_result")(nb::none());
-
-        return py_fut;
-    }
-
-    nb::object shutdown_asyncgens() {
-        auto py_fut = create_future();
-
-        py_fut.attr("set_result")(nb::none());
-
-        return py_fut;
     }
 
     nb::object run_until_complete(nb::object future) {
@@ -387,26 +365,10 @@ public:
 
     void noop() {}
 
-    nb::object getaddrinfo(std::string host, int port, int family, int type, int proto, int flags);
+    // nb::object getaddrinfo(std::string host, int port, int family, int type, int proto, int
+    // flags);
 
     // TODO: NOT IMPLEMENTED
-    nb::object
-    sock_sendfile(nb::object sock, nb::object file, int offset, int count, bool fallback);
-
-    nb::object create_server(nb::object protocol_factory,
-                             nb::object host,
-                             std::optional<int> port,
-                             int family,
-                             int flags,
-                             std::optional<nb::object> sock,
-                             int backlog,
-                             std::optional<nb::object> ssl,
-                             std::optional<nb::object> reuse_address,
-                             std::optional<nb::object> reuse_port,
-                             std::optional<nb::object> keep_alive,
-                             std::optional<nb::object> ssl_handshake_timeout,
-                             std::optional<nb::object> ssl_shutdown_timeout,
-                             bool start_serving);
 
     // nb::object create_connection(nb::object protocol_factory,
     //                              std::optional<nb::object> host,
