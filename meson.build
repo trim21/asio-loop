@@ -56,6 +56,7 @@ add_project_arguments('-DBOOST_ASIO_NO_DEPRECATED', language: 'cpp')
 # add_project_arguments('-DBOOST_ASIO_HAS_CO_AWAIT', language: 'cpp')
 add_project_arguments('-D_CRT_SECURE_NO_WARNINGS', language: 'cpp')
 
+c_ares = subproject('c-ares')
 
 out = py.extension_module(
     '__asioloop',
@@ -66,6 +67,7 @@ out = py.extension_module(
     dependencies: [
         nanobind_dep,
         fmt.get_variable('fmt_header_only_dep'),
+        c_ares.get_variable('cares_static_dep'),
         boost_dep,
         py.dependency(),
     ],
