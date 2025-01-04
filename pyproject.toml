@@ -35,10 +35,9 @@ Issues = "https://github.com/trim21/asio-loop/issues"
 
 [tool.meson-python.args]
 setup = ['--errorlogs']
-dist = ['--verbose']
-compile = ['--verbose']
+dist = []
+compile = []
 install = [
-    '--verbose',
     # exclude .lib file in windows
     # https://github.com/mesonbuild/meson-python/issues/552#issuecomment-1863039032
     '--tags=runtime,python-runtime',
@@ -56,6 +55,11 @@ environment = { 'UV_LINK_MODE' = 'copy' }
 before-all = "uv tool install sccache"
 environment-pass = ['SCCACHE_GHA_ENABLED', 'ACTIONS_CACHE_URL', 'ACTIONS_RUNTIME_TOKEN']
 environment = { "PATH" = "$PATH:/root/.local/bin" }
+
+manylinux-x86_64-image = "quay.io/pypa/manylinux_2_34_x86_64"
+
+# need privileged to allow io_uring
+container-engine = { name = "docker", create-args = ["--privileged"] }
 
 [tool.black]
 extend-exclude = 'vendor'

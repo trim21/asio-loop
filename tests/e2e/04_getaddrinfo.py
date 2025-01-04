@@ -1,35 +1,26 @@
 import asyncio
-import asyncio.futures
 import socket
-import threading
-from concurrent.futures import ThreadPoolExecutor
+from pprint import pprint
 
 from asioloop import AsioEventLoopPolicy
 
 asyncio.set_event_loop_policy(AsioEventLoopPolicy())
 
-loop = asyncio.SelectorEventLoop()
-
-
-def work():
-    print("run work in thread", threading.current_thread().native_id)
-    print("now try to resolve")
-    try:
-        result = socket.getaddrinfo("www.baidu.com", 443)
-    except Exception as e:
-        print(e)
-        raise
-    print("run work in thread", threading.current_thread().native_id)
-    print("resolve done")
-    return result
+loop = asyncio.new_event_loop()
 
 
 async def main() -> None:
-    loop.set_default_executor(ThreadPoolExecutor(thread_name_prefix="asyncio"))
+    loop = asyncio.get_event_loop()
 
-    result = await loop.run_in_executor(None, work)
+    result = await loop.getaddrinfo("127.0.0.1", 443)
+    print("our: ", end="")
+    pprint(result)
 
-    print("async main done", result)
+    socket_result = socket.getaddrinfo("127.0.0.1", 443)
+    print("socket: ", end="")
+    pprint(socket_result)
+
+    print("async main done")
 
 
 loop.run_until_complete(main())

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import asyncio.log
-import socket
 import sys
 import threading
 import warnings
@@ -40,8 +39,13 @@ class EventLoop(_EventLoop):
         return super().call_soon(callback, *args, context=context)
 
     async def getaddrinfo(self, host, port, *, family=0, type=0, proto=0, flags=0):
-        return await self.run_in_executor(
-            None, socket.getaddrinfo, host, port, family, type, proto, flags
+        return await super().getaddrinfo(
+            host,
+            port,
+            family=family,
+            type=type,
+            proto=proto,
+            flags=flags,
         )
 
     def set_default_executor(self, executor):
