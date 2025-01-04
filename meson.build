@@ -6,6 +6,7 @@ project(
         'cpp_std=c++20',
         'buildtype=release',
         'debug=false',
+        'default_library=static',
     ],
     meson_version: '>= 1.5.0',
     version: 'dev',
@@ -37,8 +38,6 @@ fmt = subproject('fmt')
 
 os = build_machine.system()
 
-
-
 if os == 'linux'
     boost_dep += [dependency('liburing', static: true)]
 
@@ -56,6 +55,7 @@ endif
 add_project_arguments('-DBOOST_ASIO_NO_DEPRECATED', language: 'cpp')
 # add_project_arguments('-DBOOST_ASIO_HAS_CO_AWAIT', language: 'cpp')
 add_project_arguments('-D_CRT_SECURE_NO_WARNINGS', language: 'cpp')
+
 
 out = py.extension_module(
     '__asioloop',

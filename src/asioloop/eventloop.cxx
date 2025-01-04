@@ -120,7 +120,7 @@ EventLoop::call_soon_threadsafe(nb::callable callback, nb::args args, nb::object
 
     asio::post(this->io, asio::bind_executor(this->loop, [=] {
                    fmt::println("call_soon_threadsafe run callback start");
-                   RAII_GIL;
+                   ACQUIRE_GIL;
                    if (context.is_none()) {
                        callback(*args);
                    } else {

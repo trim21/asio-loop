@@ -35,8 +35,11 @@ extern nb::object SocketKind;
 extern nb::object ThreadPoolExecutor;
 extern nb::object futures_wrap_future;
 
-#define RAII_GIL                                                                                   \
+#define ACQUIRE_GIL                                                                                \
     nb::gil_scoped_acquire gil {}
+
+#define RELEASE_GIL                                                                                \
+    nb::gil_scoped_release nogil {}
 
 #if OS_WIN32
 static int code_page = GetACP();
@@ -255,7 +258,7 @@ public:
     }
 
     void run_forever() {
-        RAII_GIL;
+        ACQUIRE_GIL;
 
         py_asyncio_mod.attr("_set_running_loop")(this);
 
