@@ -32,6 +32,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: "true"
 
       - name: Cache Meson packagecache
         uses: actions/cache@v4
