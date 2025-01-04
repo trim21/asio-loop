@@ -12,6 +12,8 @@ project(
     version: 'dev',
 )
 
+# add_project_arguments('-DPY_ASIO_LOOP_CPP_DEBUG', language: 'cpp')
+
 if get_option('b_coverage')
     if meson.get_compiler('cpp').get_id() == 'clang'
         add_project_arguments('-fprofile-instr-generate', language: 'cpp')
@@ -47,9 +49,8 @@ elif os == 'linux' or os == 'darwin'
     add_project_arguments('-DOS_POSIX=1', language: 'cpp')
 endif
 
-# add_project_arguments('-DPY_ASIO_LOOP_CPP_DEBUG', language: 'cpp')
 add_project_arguments('-DBOOST_ASIO_NO_DEPRECATED', language: 'cpp')
-# add_project_arguments('-DBOOST_ASIO_HAS_CO_AWAIT', language: 'cpp')
+add_project_arguments('-DBOOST_ASIO_HAS_CO_AWAIT', language: 'cpp')
 add_project_arguments('-D_CRT_SECURE_NO_WARNINGS', language: 'cpp')
 
 add_project_arguments('-DFMT_HEADER_ONLY', language: 'cpp')
