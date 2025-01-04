@@ -34,7 +34,6 @@ cxx_id = compiler.get_id()
 nanobind_dep = dependency('nanobind', static: true)
 
 boost_dep = [dependency('boost', version: '>=1.78', static: true)]
-fmt = subproject('fmt')
 
 os = build_machine.system()
 
@@ -56,16 +55,18 @@ add_project_arguments('-DBOOST_ASIO_NO_DEPRECATED', language: 'cpp')
 # add_project_arguments('-DBOOST_ASIO_HAS_CO_AWAIT', language: 'cpp')
 add_project_arguments('-D_CRT_SECURE_NO_WARNINGS', language: 'cpp')
 
+add_project_arguments('-DFMT_HEADER_ONLY', language: 'cpp')
 
 out = py.extension_module(
     '__asioloop',
     'src/asioloop/asioloop.cxx',
     'src/asioloop/eventloop.cxx',
-    install: true,
+    include_directories: include_directories(
+        './vendor/fmt/include/',
+    ),
     subdir: 'asioloop',
     dependencies: [
         nanobind_dep,
-        fmt.get_variable('fmt_header_only_dep'),
         boost_dep,
         py.dependency(),
     ],
