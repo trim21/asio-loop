@@ -44,6 +44,12 @@ jobs:
       - run: pip install -r requirements.txt
 
       - name: Setup
-        run: meson setup build --backend ninja
+        run: |
+          chcp 65001
+          meson setup build --backend ninja
+        shell: pwsh
         env:
-          PYTHONUTF8: '1'
+          PYTHONUTF8: "1"
+          PYTHONIOENCODING: "utf-8"
+          CC: clang-cl
+          CXX: clang-cl
