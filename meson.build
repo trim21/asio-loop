@@ -23,10 +23,7 @@ endif
 
 py = import('python').find_installation(pure: false)
 
-py.install_sources(
-    'src/asioloop/__init__.py',
-    subdir: 'asioloop',
-)
+py.install_sources('src/asioloop/__init__.py', subdir: 'asioloop')
 
 compiler = meson.get_compiler('cpp')
 cxx_id = compiler.get_id()
@@ -61,15 +58,9 @@ out = py.extension_module(
     '__asioloop',
     'src/asioloop/asioloop.cxx',
     'src/asioloop/eventloop.cxx',
-    include_directories: include_directories(
-        './vendor/fmt/include/',
-    ),
+    include_directories: include_directories('./vendor/fmt/include/'),
     subdir: 'asioloop',
-    dependencies: [
-        nanobind_dep,
-        boost_dep,
-        py.dependency(),
-    ],
+    dependencies: [nanobind_dep, boost_dep, py.dependency()],
 )
 
 custom_target(
