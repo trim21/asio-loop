@@ -58,6 +58,7 @@ out = py.extension_module(
     '__asioloop',
     'src/asioloop/asioloop.cxx',
     'src/asioloop/eventloop.cxx',
+    install: true,
     include_directories: include_directories('./vendor/fmt/include/'),
     subdir: 'asioloop',
     dependencies: [nanobind_dep, boost_dep, py.dependency()],
