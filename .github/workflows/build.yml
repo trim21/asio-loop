@@ -32,7 +32,7 @@ jobs:
           key: meson-packagecache-${{ runner.os }}-${{ hashFiles('subprojects/*.wrap') }}
 
       - name: Run sccache-cache
-        uses: mozilla-actions/sccache-action@v0.0.7
+        uses: mozilla-actions/sccache-action@v0.0.8
         with:
           disable_annotations: true
 
