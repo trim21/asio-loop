@@ -1,7 +1,7 @@
 [build-system]
 requires = [
-    'meson-python>=0.14.0',
-    'meson[ninja]>=1.2.1',
+    'meson-python==0.17.1',
+    'meson[ninja]==1.7.2',
 ]
 
 # conditional build c++ extension
