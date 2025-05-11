@@ -48,6 +48,7 @@ endif
 
 if os == 'windows'
     add_project_arguments('-DOS_WIN32=1', language: 'cpp')
+    add_project_arguments('-DWIN32_LEAN_AND_MEAN', language: 'cpp')
 elif os == 'linux' or os == 'darwin'
     add_project_arguments('-DOS_POSIX=1', language: 'cpp')
 endif
